@@ -15,8 +15,55 @@ $bootstrap = Bootstrap::create(BP, $params);
 $obj = $bootstrap->getObjectManager();
 
 
+/* deleteStoreCategories($obj);
+function deleteStoreCategories($objectManager)
+{
+    $categoryFactory = $objectManager->get('Magento\Catalog\Model\CategoryFactory');
+    $newCategory = $categoryFactory->create();
+    $collection = $newCategory->getCollection();
+    $objectManager->get('Magento\Framework\Registry')->register('isSecureArea', true);
+
+    foreach ($collection as $category) {
+        $category_id = $category->getId();
+
+        if ($category_id <= 116) {
+            continue;
+        }
+
+        try {
+            $category->delete();
+            echo 'Category Removed ' . $category_id . PHP_EOL;
+        } catch (\Exception $e) {
+            echo 'Failed to remove category ' . $category_id . PHP_EOL;
+            echo $e->getMessage() . "\n" . PHP_EOL;
+        }
+    }
+}
+die;
+*/
+
+function getImage($image)
+{
+    if(!empty($image))
+    {
+        $imagePathRoot =  $_SERVER['DOCUMENT_ROOT'].'/motorcsvimport/motorcsvimport/pub/media/catalog/product/'.$image;
+        if(!file_exists($imagePathRoot))
+        {
+            $image = 'http://img.helmethouse.com/'.$image;
+        }
+    }
+    return $image;
+}
+
+//Code for reading helmet house master.csv and converting it into associative array
 $array = $fields = array(); $i = 0;
-$handle = @fopen("pub/media/csv/Sullivans_Web_Price_List_New.csv", "r");
+$fileName = 'master.csv';
+if(isset($_GET['file']) && !empty($_GET['file']))
+{
+    $fileName = $_GET['file'];
+}
+$handle = @fopen("pub/media/csv/$fileName", "r");
+
 if ($handle) {
     while (($row = fgetcsv($handle, 4096)) !== false) {
         if (empty($fields)) {
@@ -34,9 +81,9 @@ if ($handle) {
     fclose($handle);
 }
 
-$model = array_column($array,'ITEM','PART NO'); //part no need to change with UPC code
+$model = array_column($array, 'Model','Alt Part#');
 $arrayCount = array_count_values($model);
-$details = unique_multidim_array($array,'ITEM',$arrayCount); 
+$details = unique_multidim_array($array,'Model',$arrayCount); 
 
 $configurableArray = array(); 
 $associatedProductSku = array();
@@ -51,7 +98,7 @@ foreach ($arrayCount as $k=>$ac)
         $cArray['attribute_set_code'] = 'Default';
         $cArray['product_type'] = 'configurable';
 
-        $categories = array_column($details[$k], 'STYLE');
+        $categories = array_column($details[$k], 'Category');
         $uniqueCategories = array_unique($categories);
         $validCategoryArray = array_addstuff($uniqueCategories,'Default Category/');
         $allCategories = implode(",",$validCategoryArray);
@@ -66,7 +113,7 @@ foreach ($arrayCount as $k=>$ac)
         $cArray['tax_class_name'] = 'Taxable Goods';
         $cArray['visibility'] = 'Catalog, Search';
 
-        $prices = array_column($details[$k], 'QTY $'); 
+        $prices = array_column($details[$k], 'MAPP Price'); 
         $finalPrice = $prices[0];
         foreach ($prices as $price) 
         {
@@ -77,7 +124,7 @@ foreach ($arrayCount as $k=>$ac)
         }
         if(empty($finalPrice))
         {
-            $prices = array_column($details[$k], 'RTL $');         
+            $prices = array_column($details[$k], 'Retail');         
             $finalPrice = $prices[0];
             foreach ($prices as $price) 
             {
@@ -89,7 +136,7 @@ foreach ($arrayCount as $k=>$ac)
         }
         if(empty($finalPrice))
         {
-            $prices = array_column($details[$k], 'DLR $');
+            $prices = array_column($details[$k], 'Dealer');
             $finalPrice = $prices[0];
             foreach ($prices as $price) 
             {
@@ -109,7 +156,7 @@ foreach ($arrayCount as $k=>$ac)
         $cArray['meta_keywords'] = $name; 
         $cArray['meta_description'] = $name; 
 
-        $images = array_column($details[$k], 'IMAGE NAME A');
+        $images = array_column($details[$k], 'Photo');
         $uniqueImages = array_unique($images);
         $uniqueImagesArray = array();
         foreach ($uniqueImages as $uniqueImage) 
@@ -122,7 +169,7 @@ foreach ($arrayCount as $k=>$ac)
         }
         $additionalImages = implode(',', $uniqueImagesArray);
 
-        $labels = array_column($details[$k], 'IMAGE NAME A');
+        $labels = array_column($details[$k], 'Alt Photos');
         $uniqueLabels = array_unique($labels);
         
         $image = (isset($uniqueImages[0]) && !empty($uniqueImages[0]) && $uniqueImages[0] != ' ')?$uniqueImages[0]:'';
@@ -153,13 +200,13 @@ foreach ($arrayCount as $k=>$ac)
         $cArray['product_options_container'] = '';  
         $cArray['msrp_display_actual_price_type'] = '';
 
-        $countryOfManufacture = array_column($details[$k], 'ORIGIN');
+        $countryOfManufacture = array_column($details[$k], 'Origin');
         $uniqueCountryOfManufacture = array_unique($countryOfManufacture);
         $origin =  (isset($uniqueCountryOfManufacture[0]) && !empty($uniqueCountryOfManufacture[0]) && $uniqueCountryOfManufacture[0] != ' ')?trim($uniqueCountryOfManufacture[0]):''; 
         $country_of_manufacture = countryCodeToCountry($origin);
         $cArray['country_of_manufacture'] = $country_of_manufacture; 
 
-        $brands = array_column($details[$k], 'VENDOR');
+        $brands = array_column($details[$k], 'Brand');
         $uniqueBrands = array_unique($brands);  
         $brand = (isset($uniqueBrands[0]) && !empty($uniqueBrands[0]) && $uniqueBrands[0] != ' ')?trim($uniqueBrands[0]):''; 
         $allBrand = implode('|', $uniqueBrands);
@@ -228,20 +275,20 @@ foreach ($arrayCount as $k=>$ac)
         {
             $attributeDetails = '';
             $configurableVariationLabels = '';
-            if(isset($detail['PART NO']) && !empty($detail['PART NO']) && $detail['PART NO'] != ' ')
+            if(isset($detail['Alt Part#']) && !empty($detail['Alt Part#']) && $detail['Alt Part#'] != ' ')
             {
-                $attributeDetails = 'sku='.$detail['PART NO'];
-                $associatedProductSku[] = $detail['PART NO'];
+                $attributeDetails = 'sku='.$detail['Alt Part#'];
+                $associatedProductSku[] = $detail['Alt Part#'];
             }
-            if(isset($detail['COLOR']) && !empty($detail['COLOR']) && $detail['COLOR'] != ' ')
+            if(isset($detail['Color']) && !empty($detail['Color']) && $detail['Color'] != ' ')
             {
                 $configurableVariationLabels .= 'color=Color,';
-                $attributeDetails .= ',color='.$detail['COLOR'];
+                $attributeDetails .= ',color='.$detail['Color'];
             }
-            if(isset($detail['SIZE']) && !empty($detail['SIZE']) && $detail['SIZE'] != ' ')
+            if(isset($detail['Size']) && !empty($detail['Size']) && $detail['Size'] != ' ')
             {
                 $configurableVariationLabels .= 'size=Size';
-                $attributeDetails .= ',size='.$detail['SIZE'];
+                $attributeDetails .= ',size='.$detail['Size'];
             }
 
             $configurableVariations[] = $attributeDetails;
@@ -256,25 +303,32 @@ foreach ($arrayCount as $k=>$ac)
     }    
 }
 
-
-// echo "configurableArray : <pre>";
-// print_r($configurableArray);
-
-// echo "associatedProductSku : <pre>";
-// print_r($associatedProductSku);
-
-
-
-
-//Convert sullivans csv array into magento2 compatible array for product CSV
+//Convert helmet house csv array into magento2 compatible array for product CSV
 $data = array();
 foreach ($array as $key=>$value) {  
+    $sku = '';
+    if(isset($value['Model']) && !empty($value['Model']) && $value['Model'] != ' ')
+    {
+        $sku  = $value['Model'];
+    }
+    if(isset($value['Alt Part#']) && !empty($value['Alt Part#']) && $value['Alt Part#'] != ' ')
+    {
+        $sku  .= '-'.$value['Alt Part#'];
+    }
+    // if(isset($value['Color']) && !empty($value['Color']) && $value['Color'] != ' ')
+    // {
+    //     $sku .= '-'.$value['Color'];
+    // }
+    // if(isset($value['Size']) && !empty($value['Size']) && $value['Size'] != ' ')
+    // {
+    //     $sku .= '-'.$value['Size'];
+    // }
 
-    $data[$key]['sku'] = (isset($value['PART NO']) && !empty($value['PART NO']) && $value['PART NO']!=' ')?$value['PART NO']:'';
+    $data[$key]['sku'] = (isset($value['Alt Part#']) && !empty($value['Alt Part#']) && $value['Alt Part#']!=' ')?$value['Alt Part#']:'';
     $data[$key]['store_view_code'] = '';
     $data[$key]['attribute_set_code'] = 'Default';
 
-    if(in_array($value['PART NO'], $associatedProductSku))
+    if(in_array($value['Alt Part#'], $associatedProductSku))
     {
         $data[$key]['product_type'] = 'virtual';
     }
@@ -283,28 +337,23 @@ foreach ($array as $key=>$value) {
         $data[$key]['product_type'] = 'simple';
     }
 
-    $data[$key]['categories'] = (isset($value['STYLE']) && !empty($value['STYLE']) && $value['STYLE']!=' ')?'Default Category/'.$value['STYLE']:'';
+    $data[$key]['categories'] = (isset($value['Category']) && !empty($value['Category']) && $value['Category']!=' ')?'Default Category/'.$value['Category']:'';
 
     $data[$key]['product_websites'] = 'base';
 
-    $name = '';
-    if(isset($value['ITEM']) && !empty($value['ITEM']) && $value['ITEM'] != ' ')
-    {
-        $name  = $value['ITEM'];
-    }
-    $data[$key]['name'] = str_replace('/', '-', $name);  
+    $data[$key]['name'] = str_replace('/', '-', $sku);  
 
-    $data[$key]['description'] = (isset($value['DESCRIPTION']) && !empty($value['DESCRIPTION']) && $value['DESCRIPTION'] != ' ')?$value['DESCRIPTION']:'';
+    $data[$key]['description'] = (isset($value['Long Description']) && !empty($value['Long Description']) && $value['Long Description'] != ' ')?$value['Long Description']:'';
 
-    $data[$key]['short_description'] = (isset($value['DESCRIPTION']) && !empty($value['DESCRIPTION']) && $value['DESCRIPTION'] != ' ')?$value['DESCRIPTION']:'';
+    $data[$key]['short_description'] = (isset($value['Description']) && !empty($value['Description']) && $value['Description'] != ' ')?$value['Description']:'';
 
-    $data[$key]['weight'] = '';
+    $data[$key]['weight'] = (isset($value['Weight']) && !empty($value['Weight']) && $value['Weight'] != ' ')?$value['Weight']:'';
 
     $data[$key]['product_online'] = 1;
     $data[$key]['tax_class_name'] = 'Taxable Goods';
 
 
-    if(in_array($value['PART NO'], $associatedProductSku))
+    if(in_array($value['Alt Part#'], $associatedProductSku))
     {
         $data[$key]['visibility'] = 'Not Visible Individually';
     }
@@ -314,14 +363,14 @@ foreach ($array as $key=>$value) {
     }
 
 
-    $price =  (isset($value['QTY $']) && !empty($value['QTY $']) && $value['QTY $'] != ' ')?$value['QTY $']:0;
+    $price =  (isset($value['MAPP Price']) && !empty($value['MAPP Price']) && $value['MAPP Price'] != ' ')?$value['MAPP Price']:0;
     if(!isset($price) || empty($price) || $price ==' ')
     {
-        $price =  (isset($value['RTL $']) && !empty($value['RTL $']) && $value['RTL $'] != ' ')?$value['RTL $']:0;
+        $price =  (isset($value['Retail']) && !empty($value['Retail']) && $value['Retail'] != ' ')?$value['Retail']:0;
     }
     if(!isset($price) || empty($price) || $price ==' ')
     {
-        $price =  (isset($value['DLR $']) && !empty($value['DLR $']) && $value['DLR $'] != ' ')?$value['DLR $']:0;
+        $price =  (isset($value['Dealer']) && !empty($value['Dealer']) && $value['Dealer'] != ' ')?$value['Dealer']:0;
     }
 
     $data[$key]['price'] = $price; 
@@ -331,14 +380,14 @@ foreach ($array as $key=>$value) {
     $data[$key]['special_price_from_date'] = '';
     $data[$key]['special_price_to_date'] = '';
 
-    // $data[$key]['url_key'] = preg_replace('#[^0-9a-z]+#i', '-', $sku); 
+    $data[$key]['url_key'] = preg_replace('#[^0-9a-z]+#i', '-', $sku); 
 
-    $data[$key]['meta_title'] = $name;
-    $data[$key]['meta_keywords'] = $name;; 
-    $data[$key]['meta_description'] = $name; 
+    $data[$key]['meta_title'] = (isset($value['Model']) && !empty($value['Model']) && $value['Model'] != ' ')?$value['Model']:''; 
+    $data[$key]['meta_keywords'] = (isset($value['Model']) && !empty($value['Model']) && $value['Model'] != ' ')?$value['Model']:''; 
+    $data[$key]['meta_description'] = (isset($value['Model']) && !empty($value['Model']) && $value['Model'] != ' ')?$value['Model']:''; 
 
-    $photo = (isset($value['IMAGE NAME A']) && !empty($value['IMAGE NAME A']) && $value['IMAGE NAME A'] != ' ')?$value['IMAGE NAME A']:''; 
-    $label = (isset($value['IMAGE NAME A']) && !empty($value['IMAGE NAME A']) && $value['IMAGE NAME A'] != ' ')?$value['IMAGE NAME A']:''; 
+    $photo = (isset($value['Photo']) && !empty($value['Photo']) && $value['Photo'] != ' ')?$value['Photo']:''; 
+    $label = (isset($value['Alt Photos']) && !empty($value['Alt Photos']) && $value['Alt Photos'] != ' ')?$value['Alt Photos']:''; 
    // $photo = getImage($photo);
     $data[$key]['base_image'] = $photo;
     $data[$key]['base_image_label'] = $label;
@@ -355,12 +404,12 @@ foreach ($array as $key=>$value) {
     $data[$key]['new_to_date'] = '';
     $data[$key]['display_product_options_in'] = 'Block after Info Column';
 
-    $data[$key]['map_price'] = '';
+    $data[$key]['map_price'] = (isset($value['MAPP Price']) && !empty($value['MAPP Price']) && $value['MAPP Price'] != ' ')?$value['MAPP Price']:'';
 
     $data[$key]['msrp_price'] = '';
     $data[$key]['map_enabled'] = '';
 
-    if(in_array($value['PART NO'], $associatedProductSku))
+    if(in_array($value['Alt Part#'], $associatedProductSku))
     {
         $data[$key]['gift_message_available'] = 'No';
     }
@@ -376,40 +425,40 @@ foreach ($array as $key=>$value) {
     $data[$key]['product_options_container'] = '';  
     $data[$key]['msrp_display_actual_price_type'] = '';
 
-    $origin =  (isset($value['ORIGIN']) && !empty($value['ORIGIN']) && $value['ORIGIN'] != ' ')?trim($value['ORIGIN']):''; 
+    $origin =  (isset($value['Origin']) && !empty($value['Origin']) && $value['Origin'] != ' ')?trim($value['Origin']):''; 
     $country_of_manufacture = countryCodeToCountry($origin);
     $data[$key]['country_of_manufacture'] = $country_of_manufacture; 
 
-    $brand = (isset($value['VENDOR']) && !empty($value['VENDOR']) && $value['VENDOR'] != ' ')?$value['VENDOR']:'';
+    $brand = (isset($value['Brand']) && !empty($value['Brand']) && $value['Brand'] != ' ')?$value['Brand']:'';
     $data[$key]['brand'] = $brand;
 
-    $data[$key]['catalog_page'] = '';
+    $data[$key]['catalog_page'] = (isset($value['Catalog Page']) && !empty($value['Catalog Page']) && $value['Catalog Page'] != ' ')?$value['Catalog Page']:'';
 
 
-    $color = (isset($value['COLOR']) && !empty($value['COLOR']) && $value['COLOR'] != ' ')?$value['COLOR']:'';
+    $color = (isset($value['Color']) && !empty($value['Color']) && $value['Color'] != ' ')?$value['Color']:'';
     $colorAdd = (!empty($color))?createAttributeValue(93,'color',$color,$obj):false;
     $data[$key]['color'] = $color;
 
     $data[$key]['cost'] = '';
 
-    $data[$key]['dealer'] = (isset($value['DLR $']) && !empty($value['DLR $']) && $value['DLR $'] != ' ')?$value['DLR $']:'';
+    $data[$key]['dealer'] = (isset($value['Dealer']) && !empty($value['Dealer']) && $value['Dealer'] != ' ')?$value['Dealer']:'';
 
-    $data[$key]['depth'] = '';
+    $data[$key]['depth'] = (isset($value['Depth']) && !empty($value['Depth']) && $value['Depth'] != ' ')?$value['Depth']:'';
 
-    $data[$key]['east'] = '';
+    $data[$key]['east'] = (isset($value['East']) && !empty($value['East']) && $value['East'] != ' ')?$value['East']:'';
 
-    $data[$key]['feature_text_file'] = '';
+    $data[$key]['feature_text_file'] = (isset($value['Feature Text File']) && !empty($value['Feature Text File']) && $value['Feature Text File'] != ' ')?$value['Feature Text File']:'';
 
-    $data[$key]['length'] = '';
+    $data[$key]['length'] = (isset($value['Length']) && !empty($value['Length']) && $value['Length'] != ' ')?$value['Length']:'';
 
-    $data[$key]['mapp_y_n'] = '';
+    $data[$key]['mapp_y_n'] = (isset($value['MAPP Y/N']) && !empty($value['MAPP Y/N']) && $value['MAPP Y/N'] != ' ')?$value['MAPP Y/N']:'';
 
-    $data[$key]['origin'] = (isset($value['ORIGIN']) && !empty($value['ORIGIN']) && $value['ORIGIN'] != ' ')?$value['ORIGIN']:'';
+    $data[$key]['origin'] = (isset($value['Origin']) && !empty($value['Origin']) && $value['Origin'] != ' ')?$value['Origin']:'';
 
-    $data[$key]['retail'] = (isset($value['RTL $']) && !empty($value['RTL $']) && $value['RTL $'] != ' ')?$value['RTL $']:'';
+    $data[$key]['retail'] = (isset($value['Retail']) && !empty($value['Retail']) && $value['Retail'] != ' ')?$value['Retail']:'';
 
 
-    $size = (isset($value['SIZE']) && !empty($value['SIZE']) && $value['SIZE'] != ' ')?trim($value['SIZE']):'';
+    $size = (isset($value['Size']) && !empty($value['Size']) && $value['Size'] != ' ')?trim($value['Size']):'';
     $sizeAdd = (!empty($size))?createAttributeValue(155,'size',$size,$obj):false; 
     $data[$key]['size'] = $size;
 
@@ -417,21 +466,15 @@ foreach ($array as $key=>$value) {
     $data[$key]['ts_dimensions_length'] = '';
     $data[$key]['ts_dimensions_width'] = '';
 
-    $data[$key]['upc'] = (isset($value['UPC CODE']) && !empty($value['UPC CODE']) && $value['UPC CODE'] != ' ')?trim($value['UPC CODE']):'';
+    $data[$key]['upc'] = (isset($value['UPC']) && !empty($value['UPC']) && $value['UPC'] != ' ')?$value['UPC']:'';
 
-    $data[$key]['west'] = '';
+    $data[$key]['west'] = (isset($value['West']) && !empty($value['West']) && $value['West'] != ' ')?$value['West']:'';
 
-    $data[$key]['width'] = '';
+    $data[$key]['width'] = (isset($value['Width']) && !empty($value['Width']) && $value['Width'] != ' ')?$value['Width']:'';
 
-    $part_number = (isset($value['PART NO']) && !empty($value['PART NO']) && $value['PART NO'] != ' ')?$value['PART NO']:'';
-    $vendor_code = (isset($value['VENDOR CODE']) && !empty($value['VENDOR CODE']) && $value['VENDOR CODE'] != ' ')?$value['VENDOR CODE']:'';
-    $gender = (isset($value['GENDER']) && !empty($value['GENDER']) && $value['GENDER'] != ' ')?$value['GENDER']:'';
-    $al_qty = (isset($value['AL - QTY']) && !empty($value['AL - QTY']) && $value['AL - QTY'] != ' ')?$value['AL - QTY']:0;
-    $ma_qty = (isset($value['MA - QTY']) && !empty($value['MA - QTY']) && $value['MA - QTY'] != ' ')?$value['MA - QTY']:0;
-    $nv_qty = (isset($value['NV - QTY']) && !empty($value['NV - QTY']) && $value['NV - QTY'] != ' ')?$value['NV - QTY']:0;
-    $lbs = (isset($value['LBS']) && !empty($value['LBS']) && $value['LBS'] != ' ')?$value['LBS']:0;
-    $kgm = (isset($value['KGM']) && !empty($value['KGM']) && $value['KGM'] != ' ')?$value['KGM']:0;
-    $product_size = (isset($value['SIZE']) && !empty($value['SIZE']) && $value['SIZE'] != ' ')?$value['SIZE']:'';
+    $part_number = (isset($value['Part Number']) && !empty($value['Part Number']) && $value['Part Number'] != ' ')?$value['Part Number']:'';
+    $class = (isset($value['Class']) && !empty($value['Class']) && $value['Class'] != ' ')?$value['Class']:'';
+    $product_size = (isset($value['Size']) && !empty($value['Size']) && $value['Size'] != ' ')?$value['Size']:'';
     
     //Method for creating brand if not exists.
     $return = createBrand($brand,$obj);
@@ -442,35 +485,11 @@ foreach ($array as $key=>$value) {
     {
         $additional_attributes .= 'part_number='.$part_number.',';
     }
-    if(!empty($vendor_code))
+     if(!empty($class))
     {
-        $additional_attributes .= 'vendor_code='.$vendor_code.',';
+        $additional_attributes .= 'class='.$class.',';
     }
-    if(!empty($gender))
-    {
-        $additional_attributes .= 'gender='.$gender.',';
-    }
-    if(!empty($al_qty))
-    {
-        $additional_attributes .= 'al_qty='.$al_qty.',';
-    }
-    if(!empty($ma_qty))
-    {
-        $additional_attributes .= 'ma_qty='.$ma_qty.',';
-    }
-    if(!empty($nv_qty))
-    {
-        $additional_attributes .= 'nv_qty='.$nv_qty.',';
-    }
-    if(!empty($lbs))
-    {
-        $additional_attributes .= 'lbs='.$lbs.',';
-    }
-    if(!empty($kgm))
-    {
-        $additional_attributes .= 'kgm='.$kgm.',';
-    } 
-    if(!empty($product_size))
+     if(!empty($product_size))
     {
         $additional_attributes .= 'product_size='.$product_size.',';
     }
@@ -482,7 +501,7 @@ foreach ($array as $key=>$value) {
     $additional_attributes = substr($additional_attributes,0,-1);
     $data[$key]['additional_attributes'] = trim($additional_attributes); //need to work for Size, color if not available than need to add 
 
-    $data[$key]['qty'] = (isset($value['TOTAL QTY']) && !empty($value['TOTAL QTY']) && $value['TOTAL QTY'] != ' ')?$value['TOTAL QTY']:'';
+    $data[$key]['qty'] = (isset($value['TTL Qty']) && !empty($value['TTL Qty']) && $value['TTL Qty'] != ' ')?$value['TTL Qty']:'';
 
     $data[$key]['out_of_stock_qty'] = 0;
     $data[$key]['use_config_min_qty'] = 1;
@@ -494,11 +513,11 @@ foreach ($array as $key=>$value) {
     $data[$key]['max_cart_qty'] = 10000;
     $data[$key]['use_config_max_sale_qty'] = 1;
 
-    // $is_in_stock = 0;
-    // if($value['Status'] == 'OK' || $value['Status'] == 'On Sale') //need to work
-    // {
+    $is_in_stock = 0;
+    if($value['Status'] == 'OK' || $value['Status'] == 'On Sale')
+    {
         $is_in_stock = 1;
-    // }
+    }
 
     $data[$key]['is_in_stock'] = $is_in_stock;
 
@@ -531,95 +550,15 @@ foreach ($array as $key=>$value) {
     $data[$key]['configurable_variation_labels'] = '';
     $data[$key]['associated_skus'] = '';
 }
-
-// echo "data : <pre>";
-// print_r($data);
-
-// echo "configurableArray : <pre>";
-// print_r($configurableArray);
-// die;
-
 $finalData = array_merge($data,$configurableArray);
-
-// echo "finalData : <pre>";
-// print_r($finalData);
-// die;
-
-//Code for creating CSV for Magento2 products
-// $fileName_1 = 'sullivans_products.csv';
-// header("Cache-Control: must-revalidate, post-check=0, pre-check=0");
-// header('Content-Description: File Transfer');
-// header("Content-type: text/csv");
-// header("Content-Disposition: attachment; filename={$fileName_1}");
-// header("Expires: 0");
-// header("Pragma: public");
-// $fh1 = @fopen( 'php://output', 'w' );
-// $headerDisplayed1 = false;
-// foreach ( $finalData as $data1 ) {
-//     // Add a header row if it hasn't been added yet
-//     if ( !$headerDisplayed1 ) {
-//         // Use the keys from $data as the titles
-//         fputcsv($fh1, array_keys($data1));
-//         $headerDisplayed1 = true;
-//     }
-//     // Put the data into the stream
-//     fputcsv($fh1, $data1);
-// }
-// // Close the file
-// fclose($fh1);
-// // Make sure nothing else is sent, our file is done
-// exit;
-
-
 $app_state = $obj->get('\Magento\Framework\App\State');  
 $app_state->setAreaCode('frontend');
 
 foreach ($finalData as $fdata) 
-{
+{ 
     $productResponse[] = saveProducts($fdata,$obj);   
 }
-/* Code for associated virtual product entry in mgto_marketplace_assignproduct_associated_products table
-$virtualProduct = array();
-$virtualPriceQty = array();
-foreach ($productResponse as $product) 
-{
-	if(!empty($product['configurableArray']))
-	{
-		foreach($product['configurableArray'] as $key=>$value)
-		{
-			foreach ($value as $key1 => $value1) 
-			{
-                //Assigning configurable product ids into virtual product Ids
-				$virtualProduct[$value1] = $key ; 
-			}
-		}
-	}
 
-    if(!empty($product['virtualArray']))
-    {
-        foreach ($product['virtualArray'] as $key => $value) 
-        {
-            $virtualPriceQty[$key] = $value; 
-        }
-            
-    }
-}
-
-foreach ($virtualProduct as $virtualIdKey => $configurableIdValue) 
-{   
-    $resources = \Magento\Framework\App\ObjectManager::getInstance()
-            ->get('Magento\Framework\App\ResourceConnection');
-    $connection= $resources->getConnection();
-
-    $parent_id = '';
-    $qty = $virtualPriceQty[$virtualIdKey]['qty'];
-    $price = $virtualPriceQty[$virtualIdKey]['price'];
-    $themeTable = $resources->getTableName('mgto_marketplace_assignproduct_associated_products');
-    $sql = "INSERT INTO " . $themeTable . "(product_id, parent_id, parent_product_id,qty,price,options) VALUES ('".$virtualIdKey."','".$parent_id."','".$configurableIdValue."','".$qty."','".$price."','')";
-    $response = $connection->query($sql);
-}
-die;
-*/
 function saveProducts($array,$obj)
 {
     $product = $obj->create('\Magento\Catalog\Model\Product');  
@@ -629,119 +568,7 @@ function saveProducts($array,$obj)
     $productId = $product->getIdBySku($sku);
     if(isset($productId) && !empty($productId))
     {
-        $product->load($productId);    
-
-        $resource = $obj->get('Magento\Framework\App\ResourceConnection');
-        $connection = $resource->getConnection();
-
-        $tableName = $resource->getTableName('mgto_marketplace_product'); 
-        $sql = "Select * FROM " . $tableName. " where mageproduct_id = $productId"; 
-        $result = $connection->fetchRow($sql);
-
-        if(is_array($result) && !empty($result))
-        {
-            $themeTable1 = $resource->getTableName('mgto_marketplace_assignproduct_items');
-            $sql1 = "Select * FROM " . $themeTable1. " where product_id = $productId"; 
-            $result1 = $connection->fetchRow($sql1);  
-            $assign_id = 0;
-            if(isset($result1) && is_array($result1) && !empty($result1))
-            {
-                $assign_id = $result1['id'];
-            }          
-            // echo '<br>assign_id : '. $assign_id;   
-            if(!$assign_id) 
-            {
-                $entity_id = $result['entity_id'];
-                $owner_id = $result['seller_id'];
-                // echo '<br>owner_id  : '.$owner_id ;
-                if(isset($owner_id) && !empty($owner_id))
-                {
-                    $seller_id = 9; //seller_id need to update on live
-                    $qty = (isset($array['qty']) && !empty($array['qty']) && $array['qty'] != ' ')?$array['qty']:''; 
-                    $price = (isset($array['price']) && !empty($array['price']) && $array['price'] != ' ')?$array['price']:''; 
-                    $description = (isset($array['description']) && !empty($array['description']) && $array['description'] != ' ')?trim(str_replace("'","\"" , $array['description'])):''; 
-                    $condition = 1;
-                    $product_type = (isset($array['product_type']) && !empty($array['product_type']) && $array['product_type'] != ' ')?$array['product_type']:''; 
-                    $created_at = date('Y-m-d H:i:s');
-                    $status = 1;
-                    $themeTable2 = $resource->getTableName('mgto_marketplace_assignproduct_items');
-                    $sql2 = "INSERT INTO " . $themeTable2 . "(`product_id`, `owner_id`, `seller_id`,`qty`,`price`,`description`,`options`,`image`,`mgto_marketplace_assignproduct_items`.`condition`,`type`,`created_at`,`status`) VALUES ('".$productId."','".$owner_id."','".$seller_id."','".$qty."','".$price."','".$description."','','','".$condition."','".$product_type."','".$created_at."','".$status."')";
-                    $response2 = $connection->query($sql2); 
-                    $lastInsertId2 = $connection->lastInsertId();
-
-                    if(isset($lastInsertId2) && !empty($lastInsertId2))
-                    {
-                        $themeTable3 = $resource->getTableName('mgto_marketplace_assignproduct_data');
-                        $sql3 = "Select * FROM " . $themeTable3. " where assign_id = $assign_id"; 
-                        $result3 = $connection->fetchRow($sql3);  
-                        $assign_id3 = 0;
-                        if(isset($result3) && is_array($result3) && !empty($result3))
-                        {
-                            $assign_id3 = $result3['assign_id'];
-                        }          
-                        if(!$assign_id3)
-                        {
-                            if(isset($description) && !empty($description))
-                            {
-                                $type = 2;
-                                $assign_id = $lastInsertId2;
-                                $value = $description;
-                                $is_default = 1;
-                                $status = 1;
-                                $store_view = 1;
-                                $themeTable4 = $resource->getTableName('mgto_marketplace_assignproduct_data');
-                                $sql4 = "INSERT INTO " . $themeTable4 . "(type, assign_id, value,date,is_default,status,store_view) VALUES ('".$type."','".$assign_id."','".$value."','','".$is_default."','".$status."','".$store_view."')"; 
-                                $response4 = $connection->query($sql4);
-                                $lastInsertId4 = $connection->lastInsertId();
-                            }                      
-                            $images =  array();
-                            if(isset($array['base_image']) && !empty($array['base_image']) && $array['base_image'] !='')   
-                            {
-                                $images[] = $array['base_image'];
-                            }
-                            if(isset($array['additional_images']) && !empty($array['additional_images']) && $array['additional_images'] !='')
-                            {
-                                $images[] = $array['additional_images'];                
-                            }
-                            $imgArray = array_unique($images);
-                            foreach($imgArray as $img)
-                            {
-                                $type = 1;
-                                $assign_id = $lastInsertId2;
-                                $value = $img;
-                                $is_default = 1;
-                                $status = 1;
-                                $store_view = 1;
-                                $themeTable5 = $resource->getTableName('mgto_marketplace_assignproduct_data');
-                                $sql5 = "INSERT INTO " . $themeTable5 . "(type, assign_id, value,date,is_default,status,store_view) VALUES ('".$type."','".$assign_id."','".$value."','','".$is_default."','".$status."','".$store_view."')"; 
-                                $response5 = $connection->query($sql5);
-                                $lastInsertId5 = $connection->lastInsertId();
-                            }
-
-                            if($product_type == 'configurable')
-                            {
-                                $productTypeInstance = $product->getTypeInstance();
-                                $usedProducts = $productTypeInstance->getUsedProducts($product);
-                                foreach ($usedProducts  as $child) 
-                                {
-                                    $associatedProductId = $child->getId();
-                                    $parent_id = $lastInsertId2;
-                                    $parent_product_id = $productId;  
-
-                                    $StockState = $obj->get('\Magento\CatalogInventory\Api\StockStateInterface');
-                                    $qty1 = $StockState->getStockQty($child->getId(), $product->getStore()->getWebsiteId());
-                                    $price1 = $child->getPrice(); 
-                                    $themeTable6 = $resource->getTableName('mgto_marketplace_assignproduct_associated_products');
-                                    $sql6 = "INSERT INTO " . $themeTable6 . "(product_id, parent_id, parent_product_id,qty,price,options) VALUES ('".$associatedProductId."','".$parent_id."','".$parent_product_id."','".$qty1."','".$price1."','')"; 
-                                    $response6 = $connection->query($sql6);
-                                    $lastInsertId6 = $connection->lastInsertId();                                          
-                                }                    
-                            }                     
-                        } // $assign_id2 if close
-                    } //$lastInsertId if close
-                }// owner id if close 
-            } // close if assign_id 
-        }
+        $product->load($productId);
     }
 
     $product->setAttributeSetId(4); // Attribute set id
@@ -764,17 +591,17 @@ function saveProducts($array,$obj)
         $categoryIdsArray[] = $catId;
     }    
 
+    // echo "<pre> categoryIdsArray : ";
+    // print_R( $categoryIdsArray);
+    // die;
+
     $product->setCategoryIds($categoryIdsArray);  //need to check
+
     $name = (isset($array['name']) && !empty($array['name']) && $array['name'] != ' ')?$array['name']:'';  
-    if($productType == 'virtual')
-    {
-        $name = $name.'-'.$sku;  
-    }
-    
     $product->setName($name); // Name of Product
 
-    // $url_key = (isset($array['url_key']) && !empty($array['url_key']) && $array['url_key'] != ' ')?$array['url_key']:'';
-    // $product->setUrlKey($url_key);
+    $url_key = (isset($array['url_key']) && !empty($array['url_key']) && $array['url_key'] != ' ')?$array['url_key']:'';
+    $product->setUrlKey($url_key);
 
     $pdescription =  (isset($array['description']) && !empty($array['description']) && $array['description'] != ' ')?$array['description']:'';      
     $product->setDescription($pdescription);
@@ -923,6 +750,7 @@ function saveProducts($array,$obj)
     // $product->setData('additional_attributes',$additionalAttributes);
 
     $additionalAttributesArray = explode(',', $additionalAttributes);
+
     foreach ($additionalAttributesArray as $additionalAttribute) 
     {
         $additionalAttributeArray = explode('=',$additionalAttribute);
@@ -930,33 +758,9 @@ function saveProducts($array,$obj)
         {
             $product->setData('part_number',$additionalAttributeArray[1]);
         }
-        if($additionalAttributeArray[0] == 'vendor_code')
+        if($additionalAttributeArray[0] == 'class')
         {
-            $product->setData('vendor_code',$additionalAttributeArray[1]);
-        }
-        if($additionalAttributeArray[0] == 'gender')
-        {
-            $product->setData('gender',$additionalAttributeArray[1]);
-        }
-        if($additionalAttributeArray[0] == 'al_qty')
-        {
-            $product->setData('al_qty',$additionalAttributeArray[1]);
-        }
-        if($additionalAttributeArray[0] == 'ma_qty')
-        {
-            $product->setData('ma_qty',$additionalAttributeArray[1]);
-        }
-        if($additionalAttributeArray[0] == 'nv_qty')
-        {
-            $product->setData('nv_qty',$additionalAttributeArray[1]);
-        }
-        if($additionalAttributeArray[0] == 'lbs')
-        {
-            $product->setData('lbs',$additionalAttributeArray[1]);
-        }
-        if($additionalAttributeArray[0] == 'kgm')
-        {
-            $product->setData('kgm',$additionalAttributeArray[1]);
+            $product->setData('class',$additionalAttributeArray[1]);
         }
         if($additionalAttributeArray[0] == 'product_size')
         {
@@ -964,21 +768,23 @@ function saveProducts($array,$obj)
         }
         if($additionalAttributeArray[0] == 'product_brand')
         {
-            $attrProductBrand = $product->getResource()->getAttribute('product_brand');
-            $avidProductBrand = $attrProductBrand->getSource()->getOptionId($additionalAttributeArray[1]);
-            $product->setData('product_brand',$avidProductBrand);
+        	$attrProductBrand = $product->getResource()->getAttribute('product_brand');
+		    $avidProductBrand = $attrProductBrand->getSource()->getOptionId($additionalAttributeArray[1]);
+		    $product->setData('product_brand',$avidProductBrand);
         } 
         // if(!empty($additionalAttributeArray[1]))
         // {
-        //  $product->setData($additionalAttributeArray[0],$additionalAttributeArray[1]);
+        // 	$product->setData($additionalAttributeArray[0],$additionalAttributeArray[1]);
         // }
     }  
+
+
     $qty =  (isset($array['qty']) && !empty($array['qty']) && $array['qty'] != ' ')?$array['qty']:0;    
     $product->setStockData(
                             array(
                                 'use_config_manage_stock' => $array['use_config_manage_stock'],
                                 'use_config_max_sale_qty' => $array['use_config_max_sale_qty'],
-                                'manage_stock' => $array['manage_stock'],
+                               	'manage_stock' => $array['manage_stock'],
                                 'min_sale_qty' => $array['min_cart_qty'],
                                 'max_sale_qty' => $array['max_cart_qty'],
                                 'is_in_stock' => $array['is_in_stock'],
@@ -990,7 +796,7 @@ function saveProducts($array,$obj)
 
     $product->setWebsiteIds(array(1));  
     $product->setData('website_ids', array(1));
-    
+   	
      
     if(empty($productId))  // need to work
     {
@@ -1002,14 +808,14 @@ function saveProducts($array,$obj)
 
             if(!file_exists($imagePathRoot))
             {
-                // if(!strpos($baseImage, 'img.helmethouse.com'))
-                // { 
-                    $remote_file = '/Sullivans/Images/All_Products/'.$baseImage;
+                if(!strpos($baseImage, 'img.helmethouse.com'))
+                { 
+                    $remote_file = 'Web_Images/'.$baseImage;
                      
                     /* FTP Account */
-                    $ftp_host = 'ftp.sullivansusaftp.com'; /* host */
-                    $ftp_user_name = 'sullivans'; /* username */
-                    $ftp_user_pass = 'sullivans'; /* password */
+                    $ftp_host = 'ftp.helmethouse.com'; /* host */
+                    $ftp_user_name = 'datamart'; /* username */
+                    $ftp_user_pass = 'thebest'; /* password */
                      
                      
                     /* New file name and path for this file */
@@ -1023,18 +829,17 @@ function saveProducts($array,$obj)
                      
                     /* Download $remote_file and save to $local_file */
                     if ( ftp_get( $connect_it, $local_file, $remote_file, FTP_BINARY ) ) {
-                        echo "WOOT! Successfully written to $local_file\n";                    
+                        echo "WOOT! Successfully written to $local_file\n"; 
                     }
                     else {
-                        echo "Doh! There was a problem\n";                     
+                        echo "Doh! There was a problem\n";
                     }
 
                 /* Close the connection */
                 ftp_close( $connect_it );
-                // }
+                }
 
             }
-
             if(file_exists($imagePathRoot))
             {
                 try
@@ -1056,16 +861,17 @@ function saveProducts($array,$obj)
         $additionalImages = (isset($array['additional_images']) && !empty($array['additional_images']) && $array['additional_images'] != ' ')?$array['additional_images']:''; 
         if(!empty($additionalImages))
             {
-                $additionalImagesArray = explode(',', $additionalImages);
-                if(sizeof($additionalImagesArray) > 1) {
+            	$additionalImagesArray = explode(',', $additionalImages);
+            	if(sizeof($additionalImagesArray) > 1) {
                     /* Assign additional images to existing products */
                    // $product = $_objectManager->create('Magento\Catalog\Model\Product')->load($newProdId);
                     // $productRepository = $obj->create('Magento\Catalog\Api\ProductRepositoryInterface');
                     // $productRepository->save($product);
 
                     for ( $i=1; $i<sizeof($additionalImagesArray); $i++ ) {
-                        $prdbasepath  ='/home/motorcyclewholes/public_html/motorcsvimport/pub/media/'; //change path URL on live
+                        $prdbasepath  ='/home/motorcyclewholes/public_html/motorcsvimport/pub/media/';
                         echo '<br>Add Images :' . $prdbasepath.basename(trim($additionalImagesArray[$i])) . PHP_EOL;
+                       // $image_directory = $prdbasepath.'data'.DS.basename(trim($additionalImagesArray[$i]));
                         $image_directory = $prdbasepath.'data'.'/'.basename(trim($additionalImagesArray[$i]));
                         echo '<br>image_directory : '.$image_directory; 
                         if (file_exists($image_directory) && getimagesize($image_directory)) {
@@ -1073,6 +879,7 @@ function saveProducts($array,$obj)
                             echo '<br>File exists'.PHP_EOL; 
                             $product->addImageToMediaGallery($image_directory, array('image', 'small_image', 'thumbnail'), false, false);
                             $product->save();
+
                         }
                     }
 
@@ -1082,9 +889,9 @@ function saveProducts($array,$obj)
     }
 
     if($product->save())
-    {
+   	{
         $return = true;
-    }
+   	}
 
     $productId = $product->getId();
     echo '<br>productId : '.$productId;
@@ -1141,13 +948,13 @@ function saveProducts($array,$obj)
 
         $configurableProduct = $product;
 
-        // $colorAttrId = $configurableProduct->getResource()->getAttribute('color')->getId();
-        $configurableProduct->getTypeInstance()->setUsedProductAttributeIds($attributes, $configurableProduct); //attribute ID of attribute 'size_general' in my store
-        $configurableAttributesData = $configurableProduct->getTypeInstance()->getConfigurableAttributesAsArray($configurableProduct);
-        $configurableProduct->setCanSaveConfigurableAttributes(true);
-        $configurableProduct->setConfigurableAttributesData($configurableAttributesData);
-        $configurableProduct->save();
-        $configurableProductId = $configurableProduct->getId();
+		// $colorAttrId = $configurableProduct->getResource()->getAttribute('color')->getId();
+		$configurableProduct->getTypeInstance()->setUsedProductAttributeIds($attributes, $configurableProduct); //attribute ID of attribute 'size_general' in my store
+		$configurableAttributesData = $configurableProduct->getTypeInstance()->getConfigurableAttributesAsArray($configurableProduct);
+		$configurableProduct->setCanSaveConfigurableAttributes(true);
+		$configurableProduct->setConfigurableAttributesData($configurableAttributesData);
+		$configurableProduct->save();
+		$configurableProductId = $configurableProduct->getId();
 
 
         $product->setAffectConfigurableProductAttributes(4);
@@ -1167,9 +974,9 @@ function saveProducts($array,$obj)
     //if($productId && ($productType == 'simple'|| $productType == 'configurable' ))
     if($productId)
     {
-    	   $resources = \Magento\Framework\App\ObjectManager::getInstance()
-			->get('Magento\Framework\App\ResourceConnection');
-			$connection= $resources->getConnection();
+           $resources = \Magento\Framework\App\ObjectManager::getInstance()
+            ->get('Magento\Framework\App\ResourceConnection');
+            $connection= $resources->getConnection();
 
             $tableName = $resources->getTableName('mgto_marketplace_product'); //gives table name with prefix
             //Select Data from table
@@ -1183,11 +990,11 @@ function saveProducts($array,$obj)
            // echo '<br>mageproduct_id : '. $mageproduct_id;   
             if(!$mageproduct_id)
             {
-    			$created_at = $updated_at = date('Y-m-d H:i:s');
-    			$seller_id = 9; //seller_id need to update on live
-    			$themeTable = $resources->getTableName('mgto_marketplace_product');
-    			$sql = "INSERT INTO " . $themeTable . "(mageproduct_id, adminassign, seller_id,store_id,status,created_at,updated_at,seller_pending_notification,admin_pending_notification,is_approved) VALUES ('".$productId."',0,'".$seller_id."',0,1,'".$created_at."','".$updated_at."',0,0,1)"; 
-    			$response = $connection->query($sql);
+                $created_at = $updated_at = date('Y-m-d H:i:s');
+                $seller_id = 7; //seller_id need to update on live
+                $themeTable = $resources->getTableName('mgto_marketplace_product');
+                $sql = "INSERT INTO " . $themeTable . "(mageproduct_id, adminassign, seller_id,store_id,status,created_at,updated_at,seller_pending_notification,admin_pending_notification,is_approved) VALUES ('".$productId."',0,'".$seller_id."',0,1,'".$created_at."','".$updated_at."',0,0,1)"; 
+                $response = $connection->query($sql);
                 $mpLastInsertId = $connection->lastInsertId(); 
 
               //  echo "mpLastInsertId : ".$mpLastInsertId;

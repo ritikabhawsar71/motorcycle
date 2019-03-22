@@ -104,7 +104,7 @@ foreach ($arrayCount as $k=>$ac)
         $cArray['special_price'] = '';
         $cArray['special_price_from_date'] = '';
         $cArray['special_price_to_date'] = '';
-        $cArray['url_key'] = $sku; 
+       // $cArray['url_key'] = $sku; 
         $cArray['meta_title'] = $name; 
         $cArray['meta_keywords'] = $name; 
         $cArray['meta_description'] = $name; 
@@ -228,10 +228,15 @@ foreach ($arrayCount as $k=>$ac)
         {
             $attributeDetails = '';
             $configurableVariationLabels = '';
-            if(isset($detail['PART NO']) && !empty($detail['PART NO']) && $detail['PART NO'] != ' ')
+            // if(isset($detail['PART NO']) && !empty($detail['PART NO']) && $detail['PART NO'] != ' ')
+            // {
+            //     $attributeDetails = 'sku='.$detail['PART NO'];
+            //     $associatedProductSku[] = $detail['PART NO'];
+            // }
+            if(isset($detail['UPC CODE']) && !empty($detail['UPC CODE']) && $detail['UPC CODE'] != ' ')
             {
-                $attributeDetails = 'sku='.$detail['PART NO'];
-                $associatedProductSku[] = $detail['PART NO'];
+                $attributeDetails = 'sku='.$detail['UPC CODE'];
+                $associatedProductSku[] = $detail['UPC CODE'];
             }
             if(isset($detail['COLOR']) && !empty($detail['COLOR']) && $detail['COLOR'] != ' ')
             {
@@ -270,11 +275,13 @@ foreach ($arrayCount as $k=>$ac)
 $data = array();
 foreach ($array as $key=>$value) {  
 
-    $data[$key]['sku'] = (isset($value['PART NO']) && !empty($value['PART NO']) && $value['PART NO']!=' ')?$value['PART NO']:'';
+    // $data[$key]['sku'] = (isset($value['PART NO']) && !empty($value['PART NO']) && $value['PART NO']!=' ')?$value['PART NO']:'';
+    $data[$key]['sku'] = (isset($value['UPC CODE']) && !empty($value['UPC CODE']) && $value['UPC CODE']!=' ')?$value['UPC CODE']:'';
     $data[$key]['store_view_code'] = '';
     $data[$key]['attribute_set_code'] = 'Default';
 
-    if(in_array($value['PART NO'], $associatedProductSku))
+  //  if(in_array($value['PART NO'], $associatedProductSku))
+    if(in_array($value['UPC CODE'], $associatedProductSku))
     {
         $data[$key]['product_type'] = 'virtual';
     }
@@ -304,7 +311,8 @@ foreach ($array as $key=>$value) {
     $data[$key]['tax_class_name'] = 'Taxable Goods';
 
 
-    if(in_array($value['PART NO'], $associatedProductSku))
+    //if(in_array($value['PART NO'], $associatedProductSku))
+    if(in_array($value['UPC CODE'], $associatedProductSku))
     {
         $data[$key]['visibility'] = 'Not Visible Individually';
     }
@@ -360,7 +368,8 @@ foreach ($array as $key=>$value) {
     $data[$key]['msrp_price'] = '';
     $data[$key]['map_enabled'] = '';
 
-    if(in_array($value['PART NO'], $associatedProductSku))
+   // if(in_array($value['PART NO'], $associatedProductSku))
+    if(in_array($value['UPC CODE'], $associatedProductSku))
     {
         $data[$key]['gift_message_available'] = 'No';
     }
@@ -681,6 +690,7 @@ function saveProducts($array,$obj)
                         }          
                         if(!$assign_id3)
                         {
+                            $date = date('Y-m-d H:i:s');
                             if(isset($description) && !empty($description))
                             {
                                 $type = 2;
@@ -688,9 +698,10 @@ function saveProducts($array,$obj)
                                 $value = $description;
                                 $is_default = 1;
                                 $status = 1;
+                                
                                 $store_view = 1;
                                 $themeTable4 = $resource->getTableName('mgto_marketplace_assignproduct_data');
-                                $sql4 = "INSERT INTO " . $themeTable4 . "(type, assign_id, value,date,is_default,status,store_view) VALUES ('".$type."','".$assign_id."','".$value."','','".$is_default."','".$status."','".$store_view."')"; 
+                                $sql4 = "INSERT INTO " . $themeTable4 . "(type, assign_id, value,date,is_default,status,store_view) VALUES ('".$type."','".$assign_id."','".$value."','".$date."','".$is_default."','".$status."','".$store_view."')"; 
                                 $response4 = $connection->query($sql4);
                                 $lastInsertId4 = $connection->lastInsertId();
                             }                      
@@ -713,7 +724,7 @@ function saveProducts($array,$obj)
                                 $status = 1;
                                 $store_view = 1;
                                 $themeTable5 = $resource->getTableName('mgto_marketplace_assignproduct_data');
-                                $sql5 = "INSERT INTO " . $themeTable5 . "(type, assign_id, value,date,is_default,status,store_view) VALUES ('".$type."','".$assign_id."','".$value."','','".$is_default."','".$status."','".$store_view."')"; 
+                                $sql5 = "INSERT INTO " . $themeTable5 . "(type, assign_id, value,date,is_default,status,store_view) VALUES ('".$type."','".$assign_id."','".$value."','". $date."','".$is_default."','".$status."','".$store_view."')"; 
                                 $response5 = $connection->query($sql5);
                                 $lastInsertId5 = $connection->lastInsertId();
                             }
@@ -731,12 +742,14 @@ function saveProducts($array,$obj)
                                     $StockState = $obj->get('\Magento\CatalogInventory\Api\StockStateInterface');
                                     $qty1 = $StockState->getStockQty($child->getId(), $product->getStore()->getWebsiteId());
                                     $price1 = $child->getPrice(); 
+
                                     $themeTable6 = $resource->getTableName('mgto_marketplace_assignproduct_associated_products');
                                     $sql6 = "INSERT INTO " . $themeTable6 . "(product_id, parent_id, parent_product_id,qty,price,options) VALUES ('".$associatedProductId."','".$parent_id."','".$parent_product_id."','".$qty1."','".$price1."','')"; 
                                     $response6 = $connection->query($sql6);
                                     $lastInsertId6 = $connection->lastInsertId();                                          
                                 }                    
-                            }                     
+                            }   
+                            return true;
                         } // $assign_id2 if close
                     } //$lastInsertId if close
                 }// owner id if close 

@@ -151,7 +151,7 @@ foreach ($arrayCount as $k=>$ac)
         $cArray['special_price'] = '';
         $cArray['special_price_from_date'] = '';
         $cArray['special_price_to_date'] = '';
-        $cArray['url_key'] = $sku; 
+      //  $cArray['url_key'] = $sku; 
         $cArray['meta_title'] = $name; 
         $cArray['meta_keywords'] = $name; 
         $cArray['meta_description'] = $name; 
@@ -275,10 +275,15 @@ foreach ($arrayCount as $k=>$ac)
         {
             $attributeDetails = '';
             $configurableVariationLabels = '';
-            if(isset($detail['Alt Part#']) && !empty($detail['Alt Part#']) && $detail['Alt Part#'] != ' ')
+            // if(isset($detail['Alt Part#']) && !empty($detail['Alt Part#']) && $detail['Alt Part#'] != ' ')
+            // {
+            //     $attributeDetails = 'sku='.$detail['Alt Part#'];
+            //     $associatedProductSku[] = $detail['Alt Part#'];
+            // }
+            if(isset($detail['UPC']) && !empty($detail['UPC']) && $detail['UPC'] != ' ')
             {
-                $attributeDetails = 'sku='.$detail['Alt Part#'];
-                $associatedProductSku[] = $detail['Alt Part#'];
+                $attributeDetails = 'sku='.$detail['UPC'];
+                $associatedProductSku[] = $detail['UPC'];
             }
             if(isset($detail['Color']) && !empty($detail['Color']) && $detail['Color'] != ' ')
             {
@@ -311,9 +316,13 @@ foreach ($array as $key=>$value) {
     {
         $sku  = $value['Model'];
     }
-    if(isset($value['Alt Part#']) && !empty($value['Alt Part#']) && $value['Alt Part#'] != ' ')
+    // if(isset($value['Alt Part#']) && !empty($value['Alt Part#']) && $value['Alt Part#'] != ' ')
+    // {
+    //     $sku  .= '-'.$value['Alt Part#'];
+    // }
+    if(isset($value['UPC']) && !empty($value['UPC']) && $value['UPC'] != ' ')
     {
-        $sku  .= '-'.$value['Alt Part#'];
+        $sku  .= '-'.$value['UPC'];
     }
     // if(isset($value['Color']) && !empty($value['Color']) && $value['Color'] != ' ')
     // {
@@ -324,11 +333,13 @@ foreach ($array as $key=>$value) {
     //     $sku .= '-'.$value['Size'];
     // }
 
-    $data[$key]['sku'] = (isset($value['Alt Part#']) && !empty($value['Alt Part#']) && $value['Alt Part#']!=' ')?$value['Alt Part#']:'';
+   // $data[$key]['sku'] = (isset($value['Alt Part#']) && !empty($value['Alt Part#']) && $value['Alt Part#']!=' ')?$value['Alt Part#']:'';
+     $data[$key]['sku'] = (isset($value['UPC']) && !empty($value['UPC']) && $value['UPC']!=' ')?$value['UPC']:'';
     $data[$key]['store_view_code'] = '';
     $data[$key]['attribute_set_code'] = 'Default';
 
-    if(in_array($value['Alt Part#'], $associatedProductSku))
+   // if(in_array($value['Alt Part#'], $associatedProductSku))
+    if(in_array($value['UPC'], $associatedProductSku))
     {
         $data[$key]['product_type'] = 'virtual';
     }
@@ -353,7 +364,8 @@ foreach ($array as $key=>$value) {
     $data[$key]['tax_class_name'] = 'Taxable Goods';
 
 
-    if(in_array($value['Alt Part#'], $associatedProductSku))
+   // if(in_array($value['Alt Part#'], $associatedProductSku))
+    if(in_array($value['UPC'], $associatedProductSku))
     {
         $data[$key]['visibility'] = 'Not Visible Individually';
     }
@@ -409,7 +421,8 @@ foreach ($array as $key=>$value) {
     $data[$key]['msrp_price'] = '';
     $data[$key]['map_enabled'] = '';
 
-    if(in_array($value['Alt Part#'], $associatedProductSku))
+   // if(in_array($value['Alt Part#'], $associatedProductSku))
+    if(in_array($value['UPC'], $associatedProductSku))
     {
         $data[$key]['gift_message_available'] = 'No';
     }

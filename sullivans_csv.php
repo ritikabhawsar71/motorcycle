@@ -339,7 +339,7 @@ foreach ($array as $key=>$value) {
     $data[$key]['special_price_from_date'] = '';
     $data[$key]['special_price_to_date'] = '';
 
-    // $data[$key]['url_key'] = preg_replace('#[^0-9a-z]+#i', '-', $sku); 
+   // $data[$key]['url_key'] = preg_replace('#[^0-9a-z]+#i', '-', $sku); 
 
     $data[$key]['meta_title'] = $name;
     $data[$key]['meta_keywords'] = $name;; 
@@ -441,6 +441,7 @@ foreach ($array as $key=>$value) {
     $lbs = (isset($value['LBS']) && !empty($value['LBS']) && $value['LBS'] != ' ')?$value['LBS']:0;
     $kgm = (isset($value['KGM']) && !empty($value['KGM']) && $value['KGM'] != ' ')?$value['KGM']:0;
     $product_size = (isset($value['SIZE']) && !empty($value['SIZE']) && $value['SIZE'] != ' ')?$value['SIZE']:'';
+    $vendor_inventory_status = (isset($value['STATUS']) && !empty($value['STATUS']) && $value['STATUS'] != ' ')?$value['STATUS']:'';
     
     //Method for creating brand if not exists.
     $return = createBrand($brand,$obj);
@@ -486,6 +487,10 @@ foreach ($array as $key=>$value) {
     if(!empty($brand))
     {
         $additional_attributes .= 'product_brand='.$brand.',';
+    }
+    if(!empty($vendor_inventory_status))
+    {
+        $additional_attributes .= 'vendor_inventory_status='.$vendor_inventory_status.',';
     }
 
     $additional_attributes = substr($additional_attributes,0,-1);
@@ -550,36 +555,6 @@ foreach ($array as $key=>$value) {
 
 $finalData = array_merge($data,$configurableArray);
 
-// echo "finalData : <pre>";
-// print_r($finalData);
-// die;
-
-//Code for creating CSV for Magento2 products
-// $fileName_1 = 'sullivans_products.csv';
-// header("Cache-Control: must-revalidate, post-check=0, pre-check=0");
-// header('Content-Description: File Transfer');
-// header("Content-type: text/csv");
-// header("Content-Disposition: attachment; filename={$fileName_1}");
-// header("Expires: 0");
-// header("Pragma: public");
-// $fh1 = @fopen( 'php://output', 'w' );
-// $headerDisplayed1 = false;
-// foreach ( $finalData as $data1 ) {
-//     // Add a header row if it hasn't been added yet
-//     if ( !$headerDisplayed1 ) {
-//         // Use the keys from $data as the titles
-//         fputcsv($fh1, array_keys($data1));
-//         $headerDisplayed1 = true;
-//     }
-//     // Put the data into the stream
-//     fputcsv($fh1, $data1);
-// }
-// // Close the file
-// fclose($fh1);
-// // Make sure nothing else is sent, our file is done
-// exit;
-
-
 $app_state = $obj->get('\Magento\Framework\App\State');  
 $app_state->setAreaCode('frontend');
 
@@ -632,10 +607,10 @@ die;
 function saveProducts($array,$obj)
 {
     $product = $obj->create('\Magento\Catalog\Model\Product');  
-    $sku =  (isset($array['sku']) && !empty($array['sku']) && $array['sku'] != ' ')?$array['sku']:'';  
+    $sku =  (isset($array['sku']) && !empty($array['sku']) && $array['sku'] != ' ')?trim($array['sku']):'';  
     $product->setSku($sku); // Set your sku here
-
     $productId = $product->getIdBySku($sku);
+    $associativeProduct = array(); 
     if(isset($productId) && !empty($productId))
     {
         $product->load($productId);    
@@ -647,6 +622,7 @@ function saveProducts($array,$obj)
         $sql = "Select * FROM " . $tableName. " where mageproduct_id = $productId"; 
         $result = $connection->fetchRow($sql);
 
+        
         if(is_array($result) && !empty($result))
         {
             $themeTable1 = $resource->getTableName('mgto_marketplace_assignproduct_items');
@@ -662,99 +638,185 @@ function saveProducts($array,$obj)
             {
                 $entity_id = $result['entity_id'];
                 $owner_id = $result['seller_id'];
+                $seller_id = 9;
                 // echo '<br>owner_id  : '.$owner_id ;
-                if(isset($owner_id) && !empty($owner_id))
+                if(isset($owner_id) && !empty($owner_id) && $owner_id != $seller_id)
                 {
-                    $seller_id = 9; //seller_id need to update on live
+                     //seller_id need to update on live
                     $qty = (isset($array['qty']) && !empty($array['qty']) && $array['qty'] != ' ')?$array['qty']:''; 
                     $price = (isset($array['price']) && !empty($array['price']) && $array['price'] != ' ')?$array['price']:''; 
                     $description = (isset($array['description']) && !empty($array['description']) && $array['description'] != ' ')?trim(str_replace("'","\"" , $array['description'])):''; 
                     $condition = 1;
                     $product_type = (isset($array['product_type']) && !empty($array['product_type']) && $array['product_type'] != ' ')?$array['product_type']:''; 
                     $created_at = date('Y-m-d H:i:s');
-                    $status = 1;
-                    $themeTable2 = $resource->getTableName('mgto_marketplace_assignproduct_items');
-                    $sql2 = "INSERT INTO " . $themeTable2 . "(`product_id`, `owner_id`, `seller_id`,`qty`,`price`,`description`,`options`,`image`,`mgto_marketplace_assignproduct_items`.`condition`,`type`,`created_at`,`status`) VALUES ('".$productId."','".$owner_id."','".$seller_id."','".$qty."','".$price."','".$description."','','','".$condition."','".$product_type."','".$created_at."','".$status."')";
-                    $response2 = $connection->query($sql2); 
-                    $lastInsertId2 = $connection->lastInsertId();
+                    $status = 1;                   
+                   // if($product_type != 'virtual')
+                    //{
+                        $themeTable2 = $resource->getTableName('mgto_marketplace_assignproduct_items');
+                        $sql2 = "INSERT INTO " . $themeTable2 . "(`product_id`, `owner_id`, `seller_id`,`qty`,`price`,`description`,`options`,`image`,`mgto_marketplace_assignproduct_items`.`condition`,`type`,`created_at`,`status`) VALUES ('".$productId."','".$owner_id."','".$seller_id."','".$qty."','".$price."','".$description."','','','".$condition."','".$product_type."','".$created_at."','".$status."')";
+                        $response2 = $connection->query($sql2); 
+                        $lastInsertId2 = $connection->lastInsertId();
 
-                    if(isset($lastInsertId2) && !empty($lastInsertId2))
-                    {
-                        $themeTable3 = $resource->getTableName('mgto_marketplace_assignproduct_data');
-                        $sql3 = "Select * FROM " . $themeTable3. " where assign_id = $assign_id"; 
-                        $result3 = $connection->fetchRow($sql3);  
-                        $assign_id3 = 0;
-                        if(isset($result3) && is_array($result3) && !empty($result3))
+                        if(isset($lastInsertId2) && !empty($lastInsertId2))
                         {
-                            $assign_id3 = $result3['assign_id'];
-                        }          
-                        if(!$assign_id3)
-                        {
-                            $date = date('Y-m-d H:i:s');
-                            if(isset($description) && !empty($description))
+                            $themeTable3 = $resource->getTableName('mgto_marketplace_assignproduct_data');
+                            $sql3 = "Select * FROM " . $themeTable3. " where assign_id = $assign_id"; 
+                            $result3 = $connection->fetchRow($sql3);  
+                            $assign_id3 = 0;
+                            if(isset($result3) && is_array($result3) && !empty($result3))
                             {
-                                $type = 2;
-                                $assign_id = $lastInsertId2;
-                                $value = $description;
-                                $is_default = 1;
-                                $status = 1;
-                                
-                                $store_view = 1;
-                                $themeTable4 = $resource->getTableName('mgto_marketplace_assignproduct_data');
-                                $sql4 = "INSERT INTO " . $themeTable4 . "(type, assign_id, value,date,is_default,status,store_view) VALUES ('".$type."','".$assign_id."','".$value."','".$date."','".$is_default."','".$status."','".$store_view."')"; 
-                                $response4 = $connection->query($sql4);
-                                $lastInsertId4 = $connection->lastInsertId();
-                            }                      
-                            $images =  array();
-                            if(isset($array['base_image']) && !empty($array['base_image']) && $array['base_image'] !='')   
+                                $assign_id3 = $result3['assign_id'];
+                            }          
+                            if(!$assign_id3)
                             {
-                                $images[] = $array['base_image'];
-                            }
-                            if(isset($array['additional_images']) && !empty($array['additional_images']) && $array['additional_images'] !='')
-                            {
-                                $images[] = $array['additional_images'];                
-                            }
-                            $imgArray = array_unique($images);
-                            foreach($imgArray as $img)
-                            {
-                                $type = 1;
-                                $assign_id = $lastInsertId2;
-                                $value = $img;
-                                $is_default = 1;
-                                $status = 1;
-                                $store_view = 1;
-                                $themeTable5 = $resource->getTableName('mgto_marketplace_assignproduct_data');
-                                $sql5 = "INSERT INTO " . $themeTable5 . "(type, assign_id, value,date,is_default,status,store_view) VALUES ('".$type."','".$assign_id."','".$value."','". $date."','".$is_default."','".$status."','".$store_view."')"; 
-                                $response5 = $connection->query($sql5);
-                                $lastInsertId5 = $connection->lastInsertId();
-                            }
-
-                            if($product_type == 'configurable')
-                            {
-                                $productTypeInstance = $product->getTypeInstance();
-                                $usedProducts = $productTypeInstance->getUsedProducts($product);
-                                foreach ($usedProducts  as $child) 
+                                if($product_type != 'virtual')
                                 {
-                                    $associatedProductId = $child->getId();
-                                    $parent_id = $lastInsertId2;
-                                    $parent_product_id = $productId;  
+                                    $date = date('Y-m-d H:i:s');
+                                    if(isset($description) && !empty($description))
+                                    {
+                                        $type = 2;
+                                        $assign_id = $lastInsertId2;
+                                        $value = $description;
+                                        $is_default = 1;
+                                        $status = 1;
+                                        
+                                        $store_view = 1;
+                                        $themeTable4 = $resource->getTableName('mgto_marketplace_assignproduct_data');
+                                        $sql4 = "INSERT INTO " . $themeTable4 . "(type, assign_id, value,date,is_default,status,store_view) VALUES ('".$type."','".$assign_id."','".$value."','".$date."','".$is_default."','".$status."','".$store_view."')"; 
+                                        $response4 = $connection->query($sql4);
+                                        $lastInsertId4 = $connection->lastInsertId();
+                                    }                      
+                                    $images =  array();
+                                    if(isset($array['base_image']) && !empty($array['base_image']) && $array['base_image'] !='')   
+                                    {
+                                        $images[] = $array['base_image'];
+                                    }
+                                    if(isset($array['additional_images']) && !empty($array['additional_images']) && $array['additional_images'] !='')
+                                    {                              
+                                        if(strpos($array['additional_images'],','))
+                                        {
+                                            $images1 = explode(',',$array['additional_images']);
+                                            foreach ($images1 as $image1) 
+                                            {
+                                                $images[] = $image1;
+                                            }
+                                        }
+                                        else
+                                        {
+                                            $images[] = $array['additional_images'];
+                                        }
 
-                                    $StockState = $obj->get('\Magento\CatalogInventory\Api\StockStateInterface');
-                                    $qty1 = $StockState->getStockQty($child->getId(), $product->getStore()->getWebsiteId());
-                                    $price1 = $child->getPrice(); 
+                                    }
+                                    $imgArray = array_unique($images);
+                                    foreach($imgArray as $img)
+                                    {
+                                        if(!empty($img))
+                                        {
+                                            $imagePathRoot =  $_SERVER['DOCUMENT_ROOT'].'/motorcsvimport/pub/media/marketplace/assignproduct/product/'.$img;
 
-                                    $themeTable6 = $resource->getTableName('mgto_marketplace_assignproduct_associated_products');
-                                    $sql6 = "INSERT INTO " . $themeTable6 . "(product_id, parent_id, parent_product_id,qty,price,options) VALUES ('".$associatedProductId."','".$parent_id."','".$parent_product_id."','".$qty1."','".$price1."','')"; 
-                                    $response6 = $connection->query($sql6);
-                                    $lastInsertId6 = $connection->lastInsertId();                                          
-                                }                    
-                            }   
-                            return true;
-                        } // $assign_id2 if close
-                    } //$lastInsertId if close
+                                            if(!file_exists($imagePathRoot))
+                                            {
+                                                // if(!strpos($baseImage, 'img.helmethouse.com'))
+                                                // { 
+                                                    $remote_file = '/Sullivans/Images/All_Products/'.$img;
+                                                     
+                                                    /* FTP Account */
+                                                    $ftp_host = 'ftp.sullivansusaftp.com'; /* host */
+                                                    $ftp_user_name = 'sullivans'; /* username */
+                                                    $ftp_user_pass = 'sullivans'; /* password */
+                                                     
+                                                     
+                                                    /* New file name and path for this file */
+                                                    $local_file = 'pub/media/marketplace/assignproduct/product/'.$img;
+                                                     
+                                                    /* Connect using basic FTP */
+                                                    $connect_it = ftp_connect( $ftp_host );
+                                                     
+                                                    /* Login to FTP */
+                                                    $login_result = ftp_login( $connect_it, $ftp_user_name, $ftp_user_pass );
+                                                     
+                                                    /* Download $remote_file and save to $local_file */
+                                                    if ( ftp_get( $connect_it, $local_file, $remote_file, FTP_BINARY ) ) {
+                                                        echo "WOOT! Successfully written to $local_file\n";                    
+                                                    }
+                                                    else {
+                                                        echo "Doh! There was a problem\n";                     
+                                                    }
+
+                                                /* Close the connection */
+                                                ftp_close( $connect_it );
+                                                // }
+
+                                            }
+
+                                            if(file_exists($imagePathRoot))
+                                            {
+                                                try
+                                                {
+                                                    $product->addImageToMediaGallery($imagePathRoot, array('image', 'small_image', 'thumbnail','swatch'), false, false);
+                                                }
+                                                catch(Exception $e)
+                                                {
+                                                    echo $e->getMessage();
+                                                }
+                                            }
+                                        }
+
+                                        $type = 1;
+                                        $assign_id = $lastInsertId2;
+                                        $value = $img;
+                                        $is_default = 1;
+                                        $status = 1;
+                                        $store_view = 1;
+                                        $themeTable5 = $resource->getTableName('mgto_marketplace_assignproduct_data');
+                                        $sql5 = "INSERT INTO " . $themeTable5 . "(type, assign_id, value,date,is_default,status,store_view) VALUES ('".$type."','".$assign_id."','".$value."','". $date."','".$is_default."','".$status."','".$store_view."')"; 
+                                        $response5 = $connection->query($sql5);
+                                        $lastInsertId5 = $connection->lastInsertId();
+                                    }
+
+                                }
+
+                                if($product_type == 'configurable')
+                                {
+                                    $productTypeInstance = $product->getTypeInstance();
+                                    $usedProducts = $productTypeInstance->getUsedProducts($product);
+                                    foreach ($usedProducts  as $child) 
+                                    {
+                                        $associatedProductId = $child->getId();
+
+                                       // echo '<br>associatedProductId : '.$associatedProductId;
+
+                                        $parent_id = $lastInsertId2;
+                                        $parent_product_id = $productId;  
+
+                                        $themeTable51 = $resource->getTableName('mgto_marketplace_assignproduct_items');
+                                        $sql51 = "Select * FROM " . $themeTable51. " where product_id = $associatedProductId"; 
+                                        $result51 = $connection->fetchRow($sql51);                                
+                                        if(isset($result51) && is_array($result51) && !empty($result51))
+                                        {
+                                            $qty1 = $result51['qty'];
+                                            $price1 = $result51['price'];                                           
+                                            $themeTable6 = $resource->getTableName('mgto_marketplace_assignproduct_associated_products');
+                                            $sql6 = "INSERT INTO " . $themeTable6 . "(product_id, parent_id, parent_product_id,qty,price,options) VALUES ('".$associatedProductId."','".$parent_id."','".$parent_product_id."','".$qty1."','".$price1."','')"; 
+                                            $response6 = $connection->query($sql6);
+                                            $lastInsertId6 = $connection->lastInsertId();
+                                            if(isset($lastInsertId6) && !empty($lastInsertId6))
+                                            {
+                                                $themeTable61 = $resource->getTableName('mgto_marketplace_assignproduct_items');
+                                                $sql61 = "delete FROM " . $themeTable61. " where product_id = $associatedProductId"; 
+                                                $response61 = $connection->query($sql61);
+                                            }
+                                        }                                                                                          
+                                    }                    
+                                }   
+                               
+                            } // $assign_id2 if close
+                        } //$lastInsertId if close
+                    //}//product Type != virual                   
                 }// owner id if close 
             } // close if assign_id 
-        }
+            return true;
+        } // result if close
     }
 
     $product->setAttributeSetId(4); // Attribute set id
@@ -778,7 +840,7 @@ function saveProducts($array,$obj)
     }    
 
     $product->setCategoryIds($categoryIdsArray);  //need to check
-    $name = (isset($array['name']) && !empty($array['name']) && $array['name'] != ' ')?$array['name']:'';  
+    $name = (isset($array['name']) && !empty($array['name']) && $array['name'] != ' ')?trim($array['name']):'';  
     if($productType == 'virtual')
     {
         $name = $name.'-'.$sku;  
@@ -789,10 +851,10 @@ function saveProducts($array,$obj)
     // $url_key = (isset($array['url_key']) && !empty($array['url_key']) && $array['url_key'] != ' ')?$array['url_key']:'';
     // $product->setUrlKey($url_key);
 
-    $pdescription =  (isset($array['description']) && !empty($array['description']) && $array['description'] != ' ')?$array['description']:'';      
+    $pdescription =  (isset($array['description']) && !empty($array['description']) && $array['description'] != ' ')?trim($array['description']):'';      
     $product->setDescription($pdescription);
 
-    $pshortdescription =  (isset($array['short_description']) && !empty($array['short_description']) && $array['short_description'] != ' ')?$array['short_description']:''; 
+    $pshortdescription =  (isset($array['short_description']) && !empty($array['short_description']) && $array['short_description'] != ' ')?trim($array['short_description']):''; 
     $product->setShortDescription($pshortdescription);
 
     $weight = (isset($array['weight']) && !empty($array['weight']) && $array['weight'] != ' ')?$array['weight']:'';  
@@ -981,6 +1043,37 @@ function saveProducts($array,$obj)
             $avidProductBrand = $attrProductBrand->getSource()->getOptionId($additionalAttributeArray[1]);
             $product->setData('product_brand',$avidProductBrand);
         } 
+        if($additionalAttributeArray[0] == 'vendor_inventory_status')
+        {
+            $vendor_inventory_status = 'Active';
+            switch ($additionalAttributeArray[1]) {
+                case 'A':
+                    $vendor_inventory_status = 'Active';
+                    break;
+                case 'C':
+                    $vendor_inventory_status = 'Closeout';
+                    break;
+                case 'D':
+                    $vendor_inventory_status = 'Discontinued';
+                    break;    
+                case 'S':
+                    $vendor_inventory_status = 'Sale';
+                    break;    
+                case 'N':
+                    $vendor_inventory_status = 'New';
+                    break;  
+                case 'O':
+                    $vendor_inventory_status = 'Off Map';
+                    break;
+                case 'T':
+                    $vendor_inventory_status = 'Terminated';
+                    break;
+                case 'Z':
+                    $vendor_inventory_status = 'Snow';
+                    break;
+            }
+            $product->setData('vendor_inventory_status',$vendor_inventory_status);
+        }
         // if(!empty($additionalAttributeArray[1]))
         // {
         //  $product->setData($additionalAttributeArray[0],$additionalAttributeArray[1]);

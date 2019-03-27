@@ -334,7 +334,7 @@ foreach ($array as $key=>$value) {
     // }
 
    // $data[$key]['sku'] = (isset($value['Alt Part#']) && !empty($value['Alt Part#']) && $value['Alt Part#']!=' ')?$value['Alt Part#']:'';
-     $data[$key]['sku'] = (isset($value['UPC']) && !empty($value['UPC']) && $value['UPC']!=' ')?$value['UPC']:'';
+    $data[$key]['sku'] = (isset($value['UPC']) && !empty($value['UPC']) && $value['UPC']!=' ')?trim($value['UPC']):'';
     $data[$key]['store_view_code'] = '';
     $data[$key]['attribute_set_code'] = 'Default';
 
@@ -488,6 +488,7 @@ foreach ($array as $key=>$value) {
     $part_number = (isset($value['Part Number']) && !empty($value['Part Number']) && $value['Part Number'] != ' ')?$value['Part Number']:'';
     $class = (isset($value['Class']) && !empty($value['Class']) && $value['Class'] != ' ')?$value['Class']:'';
     $product_size = (isset($value['Size']) && !empty($value['Size']) && $value['Size'] != ' ')?$value['Size']:'';
+    $vendor_inventory_status = (isset($value['Status']) && !empty($value['Status']) && $value['Status'] != ' ')?$value['Status']:'';
     
     //Method for creating brand if not exists.
     $return = createBrand($brand,$obj);
@@ -509,6 +510,10 @@ foreach ($array as $key=>$value) {
     if(!empty($brand))
     {
         $additional_attributes .= 'product_brand='.$brand.',';
+    }
+    if(!empty($vendor_inventory_status))
+    {
+        $additional_attributes .= 'vendor_inventory_status='.$vendor_inventory_status.',';
     }
 
     $additional_attributes = substr($additional_attributes,0,-1);
@@ -575,7 +580,7 @@ foreach ($finalData as $fdata)
 function saveProducts($array,$obj)
 {
     $product = $obj->create('\Magento\Catalog\Model\Product');  
-    $sku =  (isset($array['sku']) && !empty($array['sku']) && $array['sku'] != ' ')?$array['sku']:'';  
+    $sku =  (isset($array['sku']) && !empty($array['sku']) && $array['sku'] != ' ')?trim($array['sku']):'';  
     $product->setSku($sku); // Set your sku here
 
     $productId = $product->getIdBySku($sku);
@@ -610,16 +615,16 @@ function saveProducts($array,$obj)
 
     $product->setCategoryIds($categoryIdsArray);  //need to check
 
-    $name = (isset($array['name']) && !empty($array['name']) && $array['name'] != ' ')?$array['name']:'';  
+    $name = (isset($array['name']) && !empty($array['name']) && $array['name'] != ' ')?trim($array['name']):'';  
     $product->setName($name); // Name of Product
 
-    $url_key = (isset($array['url_key']) && !empty($array['url_key']) && $array['url_key'] != ' ')?$array['url_key']:'';
+    $url_key = (isset($array['url_key']) && !empty($array['url_key']) && $array['url_key'] != ' ')?trim($array['url_key']):'';
     $product->setUrlKey($url_key);
 
-    $pdescription =  (isset($array['description']) && !empty($array['description']) && $array['description'] != ' ')?$array['description']:'';      
+    $pdescription =  (isset($array['description']) && !empty($array['description']) && $array['description'] != ' ')?trim($array['description']):'';      
     $product->setDescription($pdescription);
 
-    $pshortdescription =  (isset($array['short_description']) && !empty($array['short_description']) && $array['short_description'] != ' ')?$array['short_description']:''; 
+    $pshortdescription =  (isset($array['short_description']) && !empty($array['short_description']) && $array['short_description'] != ' ')?trim($array['short_description']):''; 
     $product->setShortDescription($pshortdescription);
 
     $weight = (isset($array['weight']) && !empty($array['weight']) && $array['weight'] != ' ')?$array['weight']:'';  
@@ -777,14 +782,18 @@ function saveProducts($array,$obj)
         }
         if($additionalAttributeArray[0] == 'product_size')
         {
-             $product->setData('product_size',$additionalAttributeArray[1]);
+            $product->setData('product_size',$additionalAttributeArray[1]);
+        }
+        if($additionalAttributeArray[0] == 'vendor_inventory_status')
+        {            
+            $product->setData('vendor_inventory_status',$additionalAttributeArray[1]);
         }
         if($additionalAttributeArray[0] == 'product_brand')
         {
         	$attrProductBrand = $product->getResource()->getAttribute('product_brand');
 		    $avidProductBrand = $attrProductBrand->getSource()->getOptionId($additionalAttributeArray[1]);
 		    $product->setData('product_brand',$avidProductBrand);
-        } 
+        }     
         // if(!empty($additionalAttributeArray[1]))
         // {
         // 	$product->setData($additionalAttributeArray[0],$additionalAttributeArray[1]);

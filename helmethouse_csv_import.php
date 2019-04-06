@@ -17,14 +17,17 @@ $obj = $bootstrap->getObjectManager();
 //Code for reading helmet house master.csv and converting it into associative array
 $array = $fields = array(); $i = 0;
 $fileName = 'm2_hh.csv';
-// if(isset($_GET['file']) && !empty($_GET['file']))
-// {
-//     $fileName = $_GET['file'];
-// }
+$path = "pub/media/csv/";
+if(isset($_GET['file']) && !empty($_GET['file']))
+{
+    $fileName = $_GET['file'];
+    $path = "pub/media/csv/hh_split/";
+}
 $app_state = $obj->get('\Magento\Framework\App\State');  
 $app_state->setAreaCode('frontend');
 
-$handle = @fopen("pub/media/csv/$fileName", "r");
+//$handle = @fopen("pub/media/csv/$fileName", "r");
+$handle = @fopen($path.$fileName, "r");
 if ($handle) {
     while (($row = fgetcsv($handle, 4096)) !== false) {
         if (empty($fields)) {
@@ -41,6 +44,7 @@ if ($handle) {
     }
     fclose($handle);
 }
+
 $missingRecords = array();
 foreach ($array as $fdata) 
 { 
@@ -102,8 +106,11 @@ function saveProducts($array,$obj)
     $name = (isset($array['name']) && !empty($array['name']) && $array['name'] != ' ')?trim($array['name']):'';  
     $product->setName($name); // Name of Product
 
-    $url_key = (isset($array['url_key']) && !empty($array['url_key']) && $array['url_key'] != ' ')?trim($array['url_key']):'';
-    $product->setUrlKey($url_key);
+    if(!$productId)
+    {
+        $url_key = (isset($array['url_key']) && !empty($array['url_key']) && $array['url_key'] != ' ')?trim($array['url_key']):'';
+        $product->setUrlKey($url_key);
+    }
 
     $pdescription =  (isset($array['description']) && !empty($array['description']) && $array['description'] != ' ')?trim($array['description']):'';      
     $product->setDescription($pdescription);

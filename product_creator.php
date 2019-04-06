@@ -164,7 +164,7 @@ foreach ($arrayCount as $k=>$ac)
             if(isset($uniqueImage) && !empty($uniqueImage))
             {
                 // $uniqueImagesArray[] = getImage($uniqueImage);
-                 $uniqueImagesArray[] = $uniqueImage;
+                $uniqueImagesArray[] = $uniqueImage;
             }
         }
         $additionalImages = implode(',', $uniqueImagesArray);

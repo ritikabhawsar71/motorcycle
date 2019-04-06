@@ -23,7 +23,7 @@ if(file_exists($path))
     // Close the file
     fclose($fh1);
     // Make sure nothing else is sent, our file is done
-    echo "CSV file have been generated!";
+    echo "CSV file have been generated on path :".$filePath;
 }
 else
 {

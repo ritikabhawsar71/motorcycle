@@ -14,7 +14,7 @@ $ftp_user_pass = 'hhrules'; /* password */
  
  
 /* New file name and path for this file */
-$local_file = 'pub/media/csv/master-orig1.csv';
+$local_file = 'pub/media/csv/master.csv';
  
 /* Connect using basic FTP */
 $connect_it = ftp_connect( $ftp_host );

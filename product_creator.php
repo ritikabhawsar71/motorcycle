@@ -8,6 +8,8 @@
 namespace app\code\Ves\Brand\Controller\Adminhtml\Brand;
 include('functions.php');
 error_reporting(1);
+ini_set('memory_limit', '-1');
+ini_set('max_execution_time', '0');
 use Magento\Framework\App\Bootstrap;
 require __DIR__ . '/app/bootstrap.php';
 $params = $_SERVER;
@@ -46,7 +48,7 @@ function getImage($image)
 {
     if(!empty($image))
     {
-        $imagePathRoot =  $_SERVER['DOCUMENT_ROOT'].'/motorcsvimport/motorcsvimport/pub/media/catalog/product/'.$image;
+        $imagePathRoot =  $_SERVER['DOCUMENT_ROOT'].'/pub/media/catalog/product/'.$image;
         if(!file_exists($imagePathRoot))
         {
             $image = 'http://img.helmethouse.com/'.$image;
@@ -58,11 +60,13 @@ function getImage($image)
 //Code for reading helmet house master.csv and converting it into associative array
 $array = $fields = array(); $i = 0;
 $fileName = 'master.csv';
-if(isset($_GET['file']) && !empty($_GET['file']))
-{
-    $fileName = $_GET['file'];
-}
-$handle = @fopen("pub/media/csv/$fileName", "r");
+$path = "pub/media/csv/";
+// if(isset($_GET['file']) && !empty($_GET['file']))
+// {
+//     $path = "pub/media/csv/hh_split/";
+//     $fileName = $_GET['file'];
+// }
+$handle = @fopen($path.$fileName, "r");
 
 if ($handle) {
     while (($row = fgetcsv($handle, 4096)) !== false) {
@@ -151,7 +155,7 @@ foreach ($arrayCount as $k=>$ac)
         $cArray['special_price'] = '';
         $cArray['special_price_from_date'] = '';
         $cArray['special_price_to_date'] = '';
-      //  $cArray['url_key'] = $sku; 
+        $cArray['url_key'] = $sku; 
         $cArray['meta_title'] = $name; 
         $cArray['meta_keywords'] = $name; 
         $cArray['meta_description'] = $name; 
@@ -572,10 +576,31 @@ $finalData = array_merge($data,$configurableArray);
 $app_state = $obj->get('\Magento\Framework\App\State');  
 $app_state->setAreaCode('frontend');
 
+// foreach ($finalData as $fdata) 
+// { 
+//     $productResponse[] = saveProducts($fdata,$obj);   
+// }
+
+$missingRecords = array();
 foreach ($finalData as $fdata) 
 { 
-    $productResponse[] = saveProducts($fdata,$obj);   
+    $sku =  (isset($fdata['sku']) && !empty($fdata['sku']) && $fdata['sku'] != ' ')?trim($fdata['sku']):'';  
+    if(isset($sku) && !empty($sku))
+    {
+        $productResponse[] = saveProducts($fdata,$obj);   
+    }
+    else
+    {
+        $name = (isset($fdata['name']) && !empty($fdata['name']) && $fdata['name'] != ' ')?trim($fdata['name']):''; 
+       // echo "<br>SKU is missing for product :".$name;
+        $missingRecords[] = $name;
+    }
 }
+
+echo "<br>missingRecords : <pre>";
+print_r($missingRecords);
+die;
+
 
 function saveProducts($array,$obj)
 {
@@ -618,8 +643,11 @@ function saveProducts($array,$obj)
     $name = (isset($array['name']) && !empty($array['name']) && $array['name'] != ' ')?trim($array['name']):'';  
     $product->setName($name); // Name of Product
 
-    $url_key = (isset($array['url_key']) && !empty($array['url_key']) && $array['url_key'] != ' ')?trim($array['url_key']):'';
-    $product->setUrlKey($url_key);
+    if(!$productId)
+    {
+        $url_key = (isset($array['url_key']) && !empty($array['url_key']) && $array['url_key'] != ' ')?trim($array['url_key']):'';
+        $product->setUrlKey($url_key);
+    }
 
     $pdescription =  (isset($array['description']) && !empty($array['description']) && $array['description'] != ' ')?trim($array['description']):'';      
     $product->setDescription($pdescription);
@@ -826,8 +854,8 @@ function saveProducts($array,$obj)
         $baseImage = (isset($array['base_image']) && !empty($array['base_image']) && $array['base_image'] != ' ')?$array['base_image']:'';  
         if(!empty($baseImage))
         {
-            $imagePathRoot =  $_SERVER['DOCUMENT_ROOT'].'/motorcsvimport/pub/media/catalog/product/'.$baseImage;
-
+            // $imagePathRoot =  $_SERVER['DOCUMENT_ROOT'].'/pub/media/catalog/product/'.$baseImage;
+            $imagePathRoot =  '/home/motorcyclewholes/public_html/pub/media/catalog/product/'.$baseImage;
             if(!file_exists($imagePathRoot))
             {
                 if(!strpos($baseImage, 'img.helmethouse.com'))
@@ -878,6 +906,7 @@ function saveProducts($array,$obj)
                 //     $return = true;
                 // }
             }
+            
         }
 
         $additionalImages = (isset($array['additional_images']) && !empty($array['additional_images']) && $array['additional_images'] != ' ')?$array['additional_images']:''; 
@@ -891,7 +920,7 @@ function saveProducts($array,$obj)
                     // $productRepository->save($product);
 
                     for ( $i=1; $i<sizeof($additionalImagesArray); $i++ ) {
-                        $prdbasepath  ='/home/motorcyclewholes/public_html/motorcsvimport/pub/media/';
+                        $prdbasepath  ='/home/motorcyclewholes/public_html/pub/media/';
                         echo '<br>Add Images :' . $prdbasepath.basename(trim($additionalImagesArray[$i])) . PHP_EOL;
                        // $image_directory = $prdbasepath.'data'.DS.basename(trim($additionalImagesArray[$i]));
                         $image_directory = $prdbasepath.'data'.'/'.basename(trim($additionalImagesArray[$i]));

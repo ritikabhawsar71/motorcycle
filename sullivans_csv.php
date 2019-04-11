@@ -8,6 +8,8 @@
 namespace app\code\Ves\Brand\Controller\Adminhtml\Brand;
 include('functions.php');
 error_reporting(1);
+ini_set('memory_limit', '-1');
+ini_set('max_execution_time', '0');
 use Magento\Framework\App\Bootstrap;
 require __DIR__ . '/app/bootstrap.php';
 $params = $_SERVER;
@@ -16,7 +18,18 @@ $obj = $bootstrap->getObjectManager();
 
 
 $array = $fields = array(); $i = 0;
-$handle = @fopen("pub/media/csv/Sullivans_Web_Price_List_New.csv", "r");
+
+$fileName = 'Sullivans_Web_Price_List_New.csv';
+$path = "pub/media/csv/";
+// if(isset($_GET['file']) && !empty($_GET['file']))
+// {
+//     $path = "pub/media/csv/ss_split/";
+//     $fileName = $_GET['file'];
+// }
+
+
+//$handle = @fopen("pub/media/csv/Sullivans_Web_Price_List_New.csv", "r");
+$handle = @fopen($path.$fileName, "r");
 if ($handle) {
     while (($row = fgetcsv($handle, 4096)) !== false) {
         if (empty($fields)) {
@@ -558,10 +571,25 @@ $finalData = array_merge($data,$configurableArray);
 $app_state = $obj->get('\Magento\Framework\App\State');  
 $app_state->setAreaCode('frontend');
 
+$missingRecords = array();
 foreach ($finalData as $fdata) 
-{
-    $productResponse[] = saveProducts($fdata,$obj);   
+{ 
+    $sku =  (isset($fdata['sku']) && !empty($fdata['sku']) && $fdata['sku'] != ' ')?trim($fdata['sku']):'';  
+    if(isset($sku) && !empty($sku))
+    {
+        $productResponse[] = saveProducts($fdata,$obj);   
+    }
+    else
+    {
+        $name = (isset($fdata['name']) && !empty($fdata['name']) && $fdata['name'] != ' ')?trim($fdata['name']):''; 
+       // echo "<br>SKU is missing for product :".$name;
+        $missingRecords[] = $name;
+    }
 }
+echo "<br>missingRecords : <pre>";
+print_r($missingRecords);
+die;
+
 /* Code for associated virtual product entry in mgto_marketplace_assignproduct_associated_products table
 $virtualProduct = array();
 $virtualPriceQty = array();
@@ -638,11 +666,10 @@ function saveProducts($array,$obj)
             {
                 $entity_id = $result['entity_id'];
                 $owner_id = $result['seller_id'];
-                $seller_id = 9;
+                $seller_id = 8; //seller_id need to update on live
                 // echo '<br>owner_id  : '.$owner_id ;
                 if(isset($owner_id) && !empty($owner_id) && $owner_id != $seller_id)
-                {
-                     //seller_id need to update on live
+                {                 
                     $qty = (isset($array['qty']) && !empty($array['qty']) && $array['qty'] != ' ')?$array['qty']:''; 
                     $price = (isset($array['price']) && !empty($array['price']) && $array['price'] != ' ')?$array['price']:''; 
                     $description = (isset($array['description']) && !empty($array['description']) && $array['description'] != ' ')?trim(str_replace("'","\"" , $array['description'])):''; 
@@ -712,7 +739,8 @@ function saveProducts($array,$obj)
                                     {
                                         if(!empty($img))
                                         {
-                                            $imagePathRoot =  $_SERVER['DOCUMENT_ROOT'].'/motorcsvimport/pub/media/marketplace/assignproduct/product/'.$img;
+                                            //$imagePathRoot =  $_SERVER['DOCUMENT_ROOT'].'/pub/media/marketplace/assignproduct/product/'.$img;
+                                            $imagePathRoot =  '/home/motorcyclewholes/public_html/pub/media/marketplace/assignproduct/product/'.$img;
 
                                             if(!file_exists($imagePathRoot))
                                             {
@@ -1104,7 +1132,8 @@ function saveProducts($array,$obj)
         $baseImage = (isset($array['base_image']) && !empty($array['base_image']) && $array['base_image'] != ' ')?$array['base_image']:'';  
         if(!empty($baseImage))
         {
-            $imagePathRoot =  $_SERVER['DOCUMENT_ROOT'].'/motorcsvimport/pub/media/catalog/product/'.$baseImage;
+            // $imagePathRoot =  $_SERVER['DOCUMENT_ROOT'].'/pub/media/catalog/product/'.$baseImage;
+            $imagePathRoot =  '/home/motorcyclewholes/public_html/pub/media/catalog/product/'.$baseImage;
 
             if(!file_exists($imagePathRoot))
             {
@@ -1170,7 +1199,7 @@ function saveProducts($array,$obj)
                     // $productRepository->save($product);
 
                     for ( $i=1; $i<sizeof($additionalImagesArray); $i++ ) {
-                        $prdbasepath  ='/home/motorcyclewholes/public_html/motorcsvimport/pub/media/'; //change path URL on live
+                        $prdbasepath  ='/home/motorcyclewholes/public_html/pub/media/'; //change path URL on live
                         echo '<br>Add Images :' . $prdbasepath.basename(trim($additionalImagesArray[$i])) . PHP_EOL;
                         $image_directory = $prdbasepath.'data'.'/'.basename(trim($additionalImagesArray[$i]));
                         echo '<br>image_directory : '.$image_directory; 
@@ -1290,7 +1319,7 @@ function saveProducts($array,$obj)
             if(!$mageproduct_id)
             {
     			$created_at = $updated_at = date('Y-m-d H:i:s');
-    			$seller_id = 9; //seller_id need to update on live
+    			$seller_id = 8; //seller_id need to update on live
     			$themeTable = $resources->getTableName('mgto_marketplace_product');
     			$sql = "INSERT INTO " . $themeTable . "(mageproduct_id, adminassign, seller_id,store_id,status,created_at,updated_at,seller_pending_notification,admin_pending_notification,is_approved) VALUES ('".$productId."',0,'".$seller_id."',0,1,'".$created_at."','".$updated_at."',0,0,1)"; 
     			$response = $connection->query($sql);

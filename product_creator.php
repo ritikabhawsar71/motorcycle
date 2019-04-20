@@ -16,6 +16,7 @@ $params = $_SERVER;
 $bootstrap = Bootstrap::create(BP, $params);
 $obj = $bootstrap->getObjectManager();
 
+echo '<br>'.date('Y-m-d H:i:s').'-----------------------------------------\n';
 
 /* deleteStoreCategories($obj);
 function deleteStoreCategories($objectManager)
@@ -60,7 +61,7 @@ function getImage($image)
 //Code for reading helmet house master.csv and converting it into associative array
 $array = $fields = array(); $i = 0;
 $fileName = 'master.csv';
-$path = "pub/media/csv/";
+$path = "/home/motorcyclewholes/public_html/pub/media/csv/";
 // if(isset($_GET['file']) && !empty($_GET['file']))
 // {
 //     $path = "pub/media/csv/hh_split/";
@@ -604,6 +605,7 @@ die;
 
 function saveProducts($array,$obj)
 {
+    $return = false;
     $product = $obj->create('\Magento\Catalog\Model\Product');  
     $sku =  (isset($array['sku']) && !empty($array['sku']) && $array['sku'] != ' ')?trim($array['sku']):'';  
     $product->setSku($sku); // Set your sku here
@@ -929,8 +931,8 @@ function saveProducts($array,$obj)
 
                             echo '<br>File exists'.PHP_EOL; 
                             $product->addImageToMediaGallery($image_directory, array('image', 'small_image', 'thumbnail'), false, false);
-                            $product->save();
-
+                          //  $product->save();
+                            $product->getResource()->save($product);
                         }
                     }
 
@@ -939,14 +941,19 @@ function saveProducts($array,$obj)
 
     }
 
-    if($product->save())
-   	{
-        $return = true;
-   	}
+    //if($product->save())
+    if($productType != 'configurable')
+    {
+        if($product->getResource()->save($product))
+       	{
+            $return = true;
+       	}
+    }
 
     $productId = $product->getId();
     echo '<br>productId : '.$productId;
     $configurableArray = array();
+    try{
     if($productType == 'configurable') //need to work
     {
 
@@ -996,31 +1003,47 @@ function saveProducts($array,$obj)
         //     }           
         // }
 
+        // if(!$productId)
+        // {
+            $configurableProduct = $product;
 
-        $configurableProduct = $product;
+    		// $colorAttrId = $configurableProduct->getResource()->getAttribute('color')->getId();
+    		$configurableProduct->getTypeInstance()->setUsedProductAttributeIds($attributes, $configurableProduct); //attribute ID of attribute 'size_general' in my store
+    		$configurableAttributesData = $configurableProduct->getTypeInstance()->getConfigurableAttributesAsArray($configurableProduct);
+    		$configurableProduct->setCanSaveConfigurableAttributes(true);
 
-		// $colorAttrId = $configurableProduct->getResource()->getAttribute('color')->getId();
-		$configurableProduct->getTypeInstance()->setUsedProductAttributeIds($attributes, $configurableProduct); //attribute ID of attribute 'size_general' in my store
-		$configurableAttributesData = $configurableProduct->getTypeInstance()->getConfigurableAttributesAsArray($configurableProduct);
-		$configurableProduct->setCanSaveConfigurableAttributes(true);
-		$configurableProduct->setConfigurableAttributesData($configurableAttributesData);
-		$configurableProduct->save();
-		$configurableProductId = $configurableProduct->getId();
+            // echo 'in configurable product';
+            // var_dump($productId);     
+
+    		$configurableProduct->setConfigurableAttributesData($configurableAttributesData);         
+    		$configurableProduct->save();
+    		$configurableProductId = $configurableProduct->getId();
+         
 
 
-        $product->setAffectConfigurableProductAttributes(4);
-        $obj->create('Magento\ConfigurableProduct\Model\Product\Type\Configurable')->setUsedProductAttributeIds($attributes, $product);
-        $product->setNewVariationsAttributeSetId(4); // Setting Attribute Set Id
-        $product->setAssociatedProductIds($associatedProductIds);// Setting Associated Products
-        $product->setUsedProductAttributeIds($associatedProductIds);
-        $product->setConfigurableProductLinks($associatedProductIds);
-        $product->setCanSaveConfigurableAttributes(true);
-        if($product->save())
+            $product->setAffectConfigurableProductAttributes(4);
+            $obj->create('Magento\ConfigurableProduct\Model\Product\Type\Configurable')->setUsedProductAttributeIds($attributes, $product);
+            $product->setNewVariationsAttributeSetId(4); // Setting Attribute Set Id
+            $product->setAssociatedProductIds($associatedProductIds);// Setting Associated Products
+          //  $product->setUsedProductAttributeIds($associatedProductIds);
+            $product->setConfigurableProductLinks($associatedProductIds);
+            $product->setCanSaveConfigurableAttributes(true);
+        // }
+
+
+       // if($product->save())
+        if($product->getResource()->save($product))
         {
             echo "<br>configurable product save"; 
             $configurableArray[$productId] = $associatedProductIds;
         }
     }
+    }
+    catch(Exception $e)
+    {
+        echo $e->getMessage();
+    }
+
 
     //if($productId && ($productType == 'simple'|| $productType == 'configurable' ))
     if($productId)

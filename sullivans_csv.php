@@ -16,11 +16,12 @@ $params = $_SERVER;
 $bootstrap = Bootstrap::create(BP, $params);
 $obj = $bootstrap->getObjectManager();
 
+echo '<br>'.date('Y-m-d H:i:s').'-----------------------------------------\n';
 
 $array = $fields = array(); $i = 0;
 
 $fileName = 'Sullivans_Web_Price_List_New.csv';
-$path = "pub/media/csv/";
+$path = "/home/motorcyclewholes/public_html/pub/media/csv/";
 // if(isset($_GET['file']) && !empty($_GET['file']))
 // {
 //     $path = "pub/media/csv/ss_split/";
@@ -642,7 +643,7 @@ function saveProducts($array,$obj)
     if(isset($productId) && !empty($productId))
     {
         $product->load($productId);    
-
+        echo "<br>load product id : ".$productId;
         $resource = $obj->get('Magento\Framework\App\ResourceConnection');
         $connection = $resource->getConnection();
 
@@ -859,12 +860,15 @@ function saveProducts($array,$obj)
     foreach ($categoryNameArray as $categoryName) 
     {
         $catName = explode('/', $categoryName);
-        $catId = getCategoryIdByName($catName[1],$obj);
-        if(!isset($catId) || empty($catId) || $catId = ' ')
+        if(is_array($catName) && !empty($catName))
         {
-            $catId = createCategory($catName[1],$obj);
+            $catId = getCategoryIdByName($catName[1],$obj);
+            if(!isset($catId) || empty($catId) || $catId = ' ')
+            {
+                $catId = createCategory($catName[1],$obj);
+            }
+            $categoryIdsArray[] = $catId;
         }
-        $categoryIdsArray[] = $catId;
     }    
 
     $product->setCategoryIds($categoryIdsArray);  //need to check
@@ -1207,7 +1211,8 @@ function saveProducts($array,$obj)
 
                             echo '<br>File exists'.PHP_EOL; 
                             $product->addImageToMediaGallery($image_directory, array('image', 'small_image', 'thumbnail'), false, false);
-                            $product->save();
+                           // $product->save();
+                            $product->getResource()->save($product);
                         }
                     }
 
@@ -1216,7 +1221,8 @@ function saveProducts($array,$obj)
 
     }
 
-    if($product->save())
+    //if($product->save())
+    if($product->getResource()->save($product))
     {
         $return = true;
     }
@@ -1292,7 +1298,8 @@ function saveProducts($array,$obj)
         $product->setUsedProductAttributeIds($associatedProductIds);
         $product->setConfigurableProductLinks($associatedProductIds);
         $product->setCanSaveConfigurableAttributes(true);
-        if($product->save())
+       // if($product->save())
+        if($product->getResource()->save($product))
         {
             echo "<br>configurable product save"; 
             $configurableArray[$productId] = $associatedProductIds;
